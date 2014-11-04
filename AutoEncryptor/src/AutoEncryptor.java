@@ -2,9 +2,6 @@ import java.nio.file.*;
 import java.nio.file.WatchEvent.Kind;
 
 import static java.nio.file.StandardWatchEventKinds.*;
-import static java.nio.file.LinkOption.*;
-
-import java.nio.file.attribute.*;
 import java.io.*;
 import java.util.*;
 
@@ -47,8 +44,6 @@ public class AutoEncryptor {
 	}
 
 	private void processEvents() {
-		System.out.println("All systems are go!");
-
 		for (;;) {
 			WatchKey key;
 
@@ -61,7 +56,7 @@ public class AutoEncryptor {
 
 			Path dir = keys.get(key);
 			if (dir == null) {
-				System.err.println("WatchKey not recognized!!");
+				System.err.println("WatchKey was not recognized.");
 				continue;
 			}
 
@@ -82,27 +77,15 @@ public class AutoEncryptor {
 
 				System.out.format("%s: %s\n", event.kind().name(), pathToFile);
 				if (kind == ENTRY_CREATE) {
-
-					// Check if already encrypted
-					// NB. There may be edge cases.
-					String extension = "";
-					int i = pathToFile.toString().lastIndexOf('.');
-					if (i > 0) {
-						extension = pathToFile.toString().substring(i + 1);
-					}
-
+					String extension = getExtensionFromPath(pathToFile);
 					if (!extension.equals("axx")) {
-						// try executing axcrypt for watched directory
 						try {
-							System.out.println("Name: " + name);
-							System.out.println("Child: " + pathToFile);
 							encrypt(pathToFile);
 						} catch (IOException e) {
 							e.printStackTrace();
 						}
 					}
 				}
-
 			}
 
 			// reset key and remove from set if directory no longer accessible
@@ -115,8 +98,16 @@ public class AutoEncryptor {
 					break;
 				}
 			}
-
 		}
+	}
+	
+	private String getExtensionFromPath(Path path){
+		String extension = "";
+		int i = path.toString().lastIndexOf('.');
+		if (i > 0) {
+			extension = path.toString().substring(i + 1);
+		}
+		return extension;
 	}
 
 	private void encrypt(Path pathToFile) throws IOException {
