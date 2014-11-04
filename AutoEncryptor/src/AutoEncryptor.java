@@ -33,7 +33,6 @@ public class AutoEncryptor {
 	}
 
 	private void register(Path dir) throws IOException {
-		// TODO Auto-generated method stub
 		WatchKey key = dir.register(watcher, ENTRY_CREATE, ENTRY_DELETE,
 				ENTRY_MODIFY);
 		if (trace) {
@@ -50,7 +49,6 @@ public class AutoEncryptor {
 	}
 
 	private void processEvents() {
-		// TODO Auto-generated method stub
 		System.out.println("All systems are go!");
 
 		for (;;) {
@@ -80,16 +78,15 @@ public class AutoEncryptor {
 					continue;
 				}
 
-				// Context for directory entry event is the file name of entry
 				WatchEvent<Path> ev = cast(event);
 				Path name = ev.context();
 				Path pathToFile = dir.resolve(name);
 
-				// print out event
 				System.out.format("%s: %s\n", event.kind().name(), pathToFile);
 				if (kind == ENTRY_CREATE) {
 
 					// Check if already encrypted
+					// NB. There may be edge cases.
 					String extension = "";
 					int i = pathToFile.toString().lastIndexOf('.');
 					if (i > 0) {
@@ -133,7 +130,7 @@ public class AutoEncryptor {
 
 		Process axCryptProcess = Runtime.getRuntime().exec(
 				"C:\\Program Files\\Axantum\\Axcrypt\\AxCrypt -b 2 -e -k \"testi\" -z "
-						+ pathToFile);
+						+ "\"" +pathToFile + "\"");
 		InputStream rdiffStream = axCryptProcess.getInputStream();
 		Reader reader = new InputStreamReader(rdiffStream);
 		BufferedReader bReader = new BufferedReader(reader);
