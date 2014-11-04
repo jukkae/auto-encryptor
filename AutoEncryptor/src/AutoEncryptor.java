@@ -2,6 +2,7 @@ import java.nio.file.*;
 import java.nio.file.WatchEvent.Kind;
 
 import static java.nio.file.StandardWatchEventKinds.*;
+
 import java.io.*;
 import java.util.*;
 
@@ -56,7 +57,7 @@ public class AutoEncryptor {
 
 			Path dir = keys.get(key);
 			if (dir == null) {
-				System.err.println("WatchKey was not recognized.");
+				printErrorMessage(Error.DIR_NULL);
 				continue;
 			}
 
@@ -64,10 +65,7 @@ public class AutoEncryptor {
 				Kind<?> kind = event.kind();
 
 				if (kind == OVERFLOW) {
-					System.out
-							.println("Event overflow detected. Some changes might have been not noticed. "
-									+ "Usually this doesn't mean there's a problem, "
-									+ "but please do check that the encryption was succesfully completed.");
+					printErrorMessage(Error.OVERFLOW);
 					continue;
 				}
 
@@ -79,11 +77,7 @@ public class AutoEncryptor {
 				if (kind == ENTRY_CREATE) {
 					String extension = getExtensionFromPath(pathToFile);
 					if (!extension.equals("axx")) {
-						try {
-							encrypt(pathToFile);
-						} catch (IOException e) {
-							e.printStackTrace();
-						}
+						encrypt(pathToFile);
 					}
 				}
 			}
@@ -100,8 +94,25 @@ public class AutoEncryptor {
 			}
 		}
 	}
-	
-	private String getExtensionFromPath(Path path){
+
+	public void printErrorMessage(Error error) {
+		switch (error) {
+		case DIR_NULL:
+			System.out
+					.println("WatchKey was not recognized. Try restarting the application.");
+			break;
+		case OVERFLOW:
+			System.out
+					.println("Event overflow detected. Some changes might have been not noticed. "
+							+ "Usually this doesn't mean there's a problem, "
+							+ "but please do check that the encryption was succesfully completed.");
+			break;
+		default:
+			break;
+		}
+	}
+
+	private String getExtensionFromPath(Path path) {
 		String extension = "";
 		int i = path.toString().lastIndexOf('.');
 		if (i > 0) {
@@ -110,20 +121,25 @@ public class AutoEncryptor {
 		return extension;
 	}
 
-	private void encrypt(Path pathToFile) throws IOException {
+	private void encrypt(Path pathToFile) {
 		String remote = remoteDir.toString();
 		System.out.println("trying axcrypt, remote is: " + remote);
 		System.out.println("path to file is: " + pathToFile);
 
-		Process axCryptProcess = Runtime.getRuntime().exec(
-				"C:\\Program Files\\Axantum\\Axcrypt\\AxCrypt -b 2 -e -k \"testi\" -z "
-						+ "\"" +pathToFile + "\"");
-		InputStream rdiffStream = axCryptProcess.getInputStream();
-		Reader reader = new InputStreamReader(rdiffStream);
-		BufferedReader bReader = new BufferedReader(reader);
-		String nextLine = null;
-		while ((nextLine = bReader.readLine()) != null) {
-			System.out.println(nextLine);
+		Process axCryptProcess;
+		try {
+			axCryptProcess = Runtime.getRuntime().exec(
+					"C:\\Program Files\\Axantum\\Axcrypt\\AxCrypt -b 2 -e -k \"testi\" -z "
+							+ "\"" + pathToFile + "\"");
+			InputStream rdiffStream = axCryptProcess.getInputStream();
+			Reader reader = new InputStreamReader(rdiffStream);
+			BufferedReader bReader = new BufferedReader(reader);
+			String nextLine = null;
+			while ((nextLine = bReader.readLine()) != null) {
+				System.out.println(nextLine);
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
 		}
 	}
 
