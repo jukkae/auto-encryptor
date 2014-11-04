@@ -72,26 +72,39 @@ public class AutoEncryptor {
 			for (WatchEvent<?> event : key.pollEvents()) {
 				Kind<?> kind = event.kind();
 
-				// TBD - provide example of how OVERFLOW event is handled
 				if (kind == OVERFLOW) {
+					System.out
+							.println("Event overflow detected. Some changes might have been not noticed. "
+									+ "Usually this doesn't mean there's a problem, "
+									+ "but please do check that the encryption was succesfully completed.");
 					continue;
 				}
 
 				// Context for directory entry event is the file name of entry
 				WatchEvent<Path> ev = cast(event);
 				Path name = ev.context();
-				Path child = dir.resolve(name);
+				Path pathToFile = dir.resolve(name);
 
 				// print out event
-				System.out.format("%s: %s\n", event.kind().name(), child);
+				System.out.format("%s: %s\n", event.kind().name(), pathToFile);
 				if (kind == ENTRY_CREATE) {
-					// try executing axcrypt for watched directory
-					try {
-						System.out.println("Name: " + name);
-						System.out.println("Child: " + child);
-						encrypt();
-					} catch (IOException e) {
-						e.printStackTrace();
+
+					// Check if already encrypted
+					String extension = "";
+					int i = pathToFile.toString().lastIndexOf('.');
+					if (i > 0) {
+						extension = pathToFile.toString().substring(i + 1);
+					}
+
+					if (!extension.equals("axx")) {
+						// try executing axcrypt for watched directory
+						try {
+							System.out.println("Name: " + name);
+							System.out.println("Child: " + pathToFile);
+							encrypt(pathToFile);
+						} catch (IOException e) {
+							e.printStackTrace();
+						}
 					}
 				}
 
@@ -111,15 +124,16 @@ public class AutoEncryptor {
 		}
 	}
 
-	private void encrypt() throws IOException {
+	private void encrypt(Path pathToFile) throws IOException {
 		String remote = remoteDir.toString();
 		String dir = directory.toString();
 		System.out.println("trying axcrypt, remote is: " + remote);
 		System.out.println("directory is: " + dir);
+		System.out.println("path to file is: " + pathToFile);
 
-		Process axCryptProcess = Runtime
-				.getRuntime()
-				.exec("C:\\Program Files\\Axantum\\Axcrypt\\AxCrypt -b 2 -e -k \"testi\" -z C:\\Users\\jukkae\\Documents\\actest\\secrets.txt");
+		Process axCryptProcess = Runtime.getRuntime().exec(
+				"C:\\Program Files\\Axantum\\Axcrypt\\AxCrypt -b 2 -e -k \"testi\" -z "
+						+ pathToFile);
 		InputStream rdiffStream = axCryptProcess.getInputStream();
 		Reader reader = new InputStreamReader(rdiffStream);
 		BufferedReader bReader = new BufferedReader(reader);
