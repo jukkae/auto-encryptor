@@ -13,7 +13,6 @@ public class AutoEncryptor {
 	private Map<WatchKey, Path> keys;
 	private boolean trace = false;
 	private Path remoteDir;
-	private Path directory; // TODO this is for testing, use directory registry!
 
 	@SuppressWarnings("unchecked")
 	static <T> WatchEvent<T> cast(WatchEvent<?> event) {
@@ -24,7 +23,6 @@ public class AutoEncryptor {
 		this.watcher = FileSystems.getDefault().newWatchService();
 		this.keys = new HashMap<WatchKey, Path>();
 		this.remoteDir = remoteDir;
-		this.directory = dir;
 
 		register(dir);
 
@@ -123,9 +121,7 @@ public class AutoEncryptor {
 
 	private void encrypt(Path pathToFile) throws IOException {
 		String remote = remoteDir.toString();
-		String dir = directory.toString();
 		System.out.println("trying axcrypt, remote is: " + remote);
-		System.out.println("directory is: " + dir);
 		System.out.println("path to file is: " + pathToFile);
 
 		Process axCryptProcess = Runtime.getRuntime().exec(
