@@ -138,6 +138,12 @@ public class AutoEncryptor {
 			while ((nextLine = bReader.readLine()) != null) {
 				System.out.println(nextLine);
 			}
+			int exitValue = axCryptProcess.exitValue();
+			if (exitValue == 0) {
+				// TODO Success!
+			} else {
+				// TODO Failure!
+			}
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
