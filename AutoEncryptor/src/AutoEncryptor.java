@@ -79,8 +79,8 @@ public class AutoEncryptor {
 					if (!extension.equals("axx")) {
 						try {
 							Path encrypted = encrypt(pathToFile);
-							Path newLocation = parseNewLocation(encrypted);
-							move(encrypted, newLocation);
+							// Path newLocation = parseNewLocation(encrypted);
+							// move(encrypted, newLocation);
 						} catch (IOException e) {
 							// TODO Auto-generated catch block
 							e.printStackTrace();
@@ -105,11 +105,11 @@ public class AutoEncryptor {
 
 	private void move(Path encrypted, Path newLocation) {
 		// TODO Auto-generated method stub
-		
+
 	}
 
-	private Path parseNewLocation(Path encrypted) {
-		// TODO Auto-generated method stub
+	private Path parseNewLocation(Path path) {
+		System.out.println(path);
 		return null;
 	}
 
@@ -149,24 +149,26 @@ public class AutoEncryptor {
 		axCryptProcess = Runtime.getRuntime().exec(
 				"C:\\Program Files\\Axantum\\Axcrypt\\AxCrypt -b 2 -e -k \"testi\" -z "
 						+ "\"" + pathToFile + "\"");
-		InputStream rdiffStream = axCryptProcess.getInputStream();
-		Reader reader = new InputStreamReader(rdiffStream);
+		InputStream stream = axCryptProcess.getInputStream();
+		Reader reader = new InputStreamReader(stream);
 		BufferedReader bReader = new BufferedReader(reader);
 		String nextLine = null;
 		while ((nextLine = bReader.readLine()) != null) {
 			System.out.println(nextLine);
 		}
 		int exitValue = axCryptProcess.exitValue();
+		System.out.println(exitValue);
 		if (exitValue == 0) {
 			return getEncryptedFilePath(pathToFile);
 		} else {
 			throw (new IOException());
 		}
+
 	}
-	
-	private Path getEncryptedFilePath(Path path){
+
+	private Path getEncryptedFilePath(Path path) {
 		return path;
-		//TODO change this
+		// TODO change this
 	}
 
 	public static void usage() {
