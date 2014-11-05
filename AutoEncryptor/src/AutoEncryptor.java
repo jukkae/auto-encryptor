@@ -77,7 +77,15 @@ public class AutoEncryptor {
 				if (kind == ENTRY_CREATE) {
 					String extension = getExtensionFromPath(pathToFile);
 					if (!extension.equals("axx")) {
-						encrypt(pathToFile);
+						try {
+							Path encrypted = encrypt(pathToFile);
+							Path newLocation = parseNewLocation(encrypted);
+							move(encrypted, newLocation);
+						} catch (IOException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+							break;
+						}
 					}
 				}
 			}
@@ -93,6 +101,16 @@ public class AutoEncryptor {
 				}
 			}
 		}
+	}
+
+	private void move(Path encrypted, Path newLocation) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	private Path parseNewLocation(Path encrypted) {
+		// TODO Auto-generated method stub
+		return null;
 	}
 
 	public void printErrorMessage(Error error) {
@@ -121,32 +139,34 @@ public class AutoEncryptor {
 		return extension;
 	}
 
-	private void encrypt(Path pathToFile) {
+	private Path encrypt(Path pathToFile) throws IOException {
 		String remote = remoteDir.toString();
 		System.out.println("trying axcrypt, remote is: " + remote);
 		System.out.println("path to file is: " + pathToFile);
 
 		Process axCryptProcess;
-		try {
-			axCryptProcess = Runtime.getRuntime().exec(
-					"C:\\Program Files\\Axantum\\Axcrypt\\AxCrypt -b 2 -e -k \"testi\" -z "
-							+ "\"" + pathToFile + "\"");
-			InputStream rdiffStream = axCryptProcess.getInputStream();
-			Reader reader = new InputStreamReader(rdiffStream);
-			BufferedReader bReader = new BufferedReader(reader);
-			String nextLine = null;
-			while ((nextLine = bReader.readLine()) != null) {
-				System.out.println(nextLine);
-			}
-			int exitValue = axCryptProcess.exitValue();
-			if (exitValue == 0) {
-				// TODO Success!
-			} else {
-				// TODO Failure!
-			}
-		} catch (IOException e) {
-			e.printStackTrace();
+
+		axCryptProcess = Runtime.getRuntime().exec(
+				"C:\\Program Files\\Axantum\\Axcrypt\\AxCrypt -b 2 -e -k \"testi\" -z "
+						+ "\"" + pathToFile + "\"");
+		InputStream rdiffStream = axCryptProcess.getInputStream();
+		Reader reader = new InputStreamReader(rdiffStream);
+		BufferedReader bReader = new BufferedReader(reader);
+		String nextLine = null;
+		while ((nextLine = bReader.readLine()) != null) {
+			System.out.println(nextLine);
 		}
+		int exitValue = axCryptProcess.exitValue();
+		if (exitValue == 0) {
+			return getEncryptedFilePath(pathToFile);
+		} else {
+			throw (new IOException());
+		}
+	}
+	
+	private Path getEncryptedFilePath(Path path){
+		return path;
+		//TODO change this
 	}
 
 	public static void usage() {
