@@ -87,8 +87,8 @@ public class AutoEncryptor {
 							System.out
 									.println("Encryption succesfull! The path to encrypted file is "
 											+ encrypted);
-							// Path newLocation = parseNewLocation(encrypted);
-							// move(encrypted, newLocation);
+
+							move(encrypted, remoteDir);
 						} catch (IOException e) {
 							// TODO Auto-generated catch block
 							e.printStackTrace();
@@ -111,14 +111,15 @@ public class AutoEncryptor {
 		}
 	}
 
-	private void move(Path encrypted, Path newLocation) {
-		// TODO Auto-generated method stub
-
-	}
-
-	private Path parseNewLocation(Path path) {
-		System.out.println(path);
-		return null;
+	private void move(Path file, Path newLocation) throws IOException {
+		Path filename = file.getFileName();
+		newLocation = Paths.get(newLocation.toString().concat("\\")
+				.concat(filename.toString()));
+		System.out.println("Moving file...");
+		System.out.println("File: " + filename);
+		System.out.println("To: " + newLocation);
+		Files.move(file, newLocation);
+		System.out.println("Move succesful!");
 	}
 
 	public void printErrorMessage(Error error) {
