@@ -85,7 +85,7 @@ public class AutoEncryptor {
 						try {
 							Path encrypted = encrypt(pathToFile);
 							System.out
-									.println("Encryption succesfull! The path to encrypted file is "
+									.println("Encryption succesful! The path to encrypted file is "
 											+ encrypted);
 
 							move(encrypted, remoteDir);
