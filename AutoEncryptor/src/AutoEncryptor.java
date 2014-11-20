@@ -199,7 +199,6 @@ public class AutoEncryptor {
 		path = Paths.get(newPath);
 		System.out.println("Path generated succesfully: " + path);
 		return path;
-		// TODO change this
 	}
 
 	public static void usage() {
