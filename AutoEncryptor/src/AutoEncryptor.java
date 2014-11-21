@@ -5,6 +5,10 @@ import static java.nio.file.StandardWatchEventKinds.*;
 
 import java.io.*;
 import java.util.*;
+import java.util.logging.FileHandler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 
 public class AutoEncryptor {
 	private WatchService watcher;
@@ -12,6 +16,10 @@ public class AutoEncryptor {
 	private boolean trace = false;
 	private Path remoteDir;
 	private String passphrase;
+	
+	private final static Logger LOGGER = Logger.getLogger(AutoEncryptor.class.getName());
+	private static FileHandler fh;
+	private static SimpleFormatter formatter;
 
 	@SuppressWarnings("unchecked")
 	static <T> WatchEvent<T> cast(WatchEvent<?> event) {
@@ -29,9 +37,27 @@ public class AutoEncryptor {
 
 		// enable trace after initial registration
 		this.trace = true;
+		
+		LOGGER.setLevel(Level.ALL);
+	}
+	
+	private static void initLogger(){
+		try {
+			fh = new FileHandler("C:/aclogs.txt");
+			LOGGER.addHandler(fh);
+			formatter = new SimpleFormatter();
+			fh.setFormatter(formatter);
+		} catch (SecurityException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 
 	private void register(Path dir) throws IOException {
+		LOGGER.info("Registering directory " + dir);
 		WatchKey key = dir.register(watcher, ENTRY_CREATE, ENTRY_DELETE,
 				ENTRY_MODIFY);
 		if (trace) {
@@ -48,21 +74,21 @@ public class AutoEncryptor {
 	}
 
 	private void processEvents() {
-		System.out
-				.println("Watcher created succesfully. Watching for changes in the filesystem.");
+		LOGGER.info("Watcher created succesfully.");
 		for (;;) {
 			WatchKey key;
 
 			try {
 				key = watcher.take();
 			} catch (InterruptedException x) {
-				System.out.println(x.getStackTrace());
+				LOGGER.severe(x.getStackTrace().toString());
 				return;
 			}
 
 			Path dir = keys.get(key);
 			if (dir == null) {
 				printErrorMessage(Error.DIR_NULL);
+				LOGGER.warning("Non-existent directory.");
 				continue;
 			}
 
@@ -71,6 +97,7 @@ public class AutoEncryptor {
 
 				if (kind == OVERFLOW) {
 					printErrorMessage(Error.OVERFLOW);
+					LOGGER.warning("Overflow error.");
 					continue;
 				}
 
@@ -84,14 +111,11 @@ public class AutoEncryptor {
 					if (!extension.equals("axx")) {
 						try {
 							Path encrypted = encrypt(pathToFile);
-							System.out
-									.println("Encryption succesful! The path to encrypted file is "
-											+ encrypted);
 
+							LOGGER.info("Encryption succesful.");
 							move(encrypted, remoteDir);
 						} catch (IOException e) {
-							// TODO Auto-generated catch block
-							e.printStackTrace();
+							LOGGER.severe(e.getStackTrace().toString());
 							break;
 						}
 					}
@@ -115,11 +139,8 @@ public class AutoEncryptor {
 		Path filename = file.getFileName();
 		newLocation = Paths.get(newLocation.toString().concat("\\")
 				.concat(filename.toString()));
-		System.out.println("Moving file...");
-		System.out.println("File: " + filename);
-		System.out.println("To: " + newLocation);
+		LOGGER.info("Moving file to " + newLocation);
 		Files.move(file, newLocation);
-		System.out.println("Move succesful!");
 	}
 
 	public void printErrorMessage(Error error) {
@@ -149,10 +170,7 @@ public class AutoEncryptor {
 	}
 
 	private Path encrypt(Path pathToFile) throws IOException {
-		String remote = remoteDir.toString();
-		System.out.println("trying axcrypt, remote is: " + remote);
-		System.out.println("path to file is: " + pathToFile);
-
+		LOGGER.info("Encrypting.");
 		Process axCryptProcess;
 
 		axCryptProcess = Runtime.getRuntime().exec(
@@ -164,13 +182,15 @@ public class AutoEncryptor {
 		BufferedReader bReader = new BufferedReader(reader);
 		String nextLine = null;
 		while ((nextLine = bReader.readLine()) != null) {
-			System.out.println(nextLine);
+			LOGGER.info("Process output: " + nextLine);
 		}
 		int exitValue = axCryptProcess.exitValue();
 		System.out.println(exitValue);
 		if (exitValue == 0) {
+			LOGGER.info("Encryption succesful.");
 			return getEncryptedFilePath(pathToFile);
 		} else {
+			LOGGER.severe("Encryption not succesful.");
 			throw (new IOException());
 		}
 
@@ -178,16 +198,13 @@ public class AutoEncryptor {
 
 	private Path getEncryptedFilePath(Path path) {
 		String extension = getExtensionFromPath(path);
-		System.out.println("Old extension: " + extension);
 		String pathString = path.toString();
-		System.out.println("Path string is: " + pathString);
 
 		int lastIndex = pathString.lastIndexOf(extension);
 		int dotIndex = lastIndex;
 		if (!extension.equals(""))
 			dotIndex = lastIndex - 1;
 		String pathNoExt = pathString.substring(0, dotIndex);
-		System.out.println("Stripped path string is: " + pathNoExt);
 
 		// TODO only works with .axx currently!
 		String newPath;
@@ -195,10 +212,8 @@ public class AutoEncryptor {
 			newPath = pathNoExt + "-" + extension + ".axx";
 		else
 			newPath = pathNoExt + ".axx";
-		System.out.println("New file path is: " + newPath);
 
 		path = Paths.get(newPath);
-		System.out.println("Path generated succesfully: " + path);
 		return path;
 	}
 
@@ -216,6 +231,8 @@ public class AutoEncryptor {
 		Path dir = Paths.get(args[0]);
 		Path remoteDir = Paths.get(args[1]);
 		String passphrase = args[2];
+		
+		initLogger();
 		new AutoEncryptor(dir, remoteDir, passphrase).processEvents();
 	}
 
