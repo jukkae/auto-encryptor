@@ -54,11 +54,11 @@ public class AutoEncryptor {
 			formatter = new SimpleFormatter();
 			fh.setFormatter(formatter);
 		} catch (SecurityException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			LOGGER.severe("Security exception during initialization.");
+			LOGGER.severe(e.getStackTrace().toString());
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			LOGGER.severe("IO exception during initialization.");
+			LOGGER.severe(e.getStackTrace().toString());
 		}
 	}
 
@@ -81,8 +81,6 @@ public class AutoEncryptor {
 
 	private void processEvents() {
 
-		// TODO ENTRY_CREATE not atomic operation,
-		// implement delay
 		LOGGER.info("Watcher created succesfully.");
 		for (;;) {
 			WatchKey key;
@@ -90,7 +88,7 @@ public class AutoEncryptor {
 			try {
 				key = watcher.take();
 			} catch (InterruptedException x) {
-				// TODO implement more helpful error messaging
+				LOGGER.severe("Watcher interrupted.");
 				LOGGER.severe(x.getStackTrace().toString());
 				return;
 			}
