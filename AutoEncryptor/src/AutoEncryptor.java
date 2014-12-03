@@ -1,10 +1,15 @@
+import java.nio.channels.FileLock;
 import java.nio.file.*;
 import java.nio.file.WatchEvent.Kind;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 
 import static java.nio.file.StandardWatchEventKinds.*;
 
 import java.io.*;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -16,8 +21,9 @@ public class AutoEncryptor {
 	private boolean trace = false;
 	private Path remoteDir;
 	private String passphrase;
-	
-	private final static Logger LOGGER = Logger.getLogger(AutoEncryptor.class.getName());
+
+	private final static Logger LOGGER = Logger.getLogger(AutoEncryptor.class
+			.getName());
 	private static FileHandler fh;
 	private static SimpleFormatter formatter;
 
@@ -37,11 +43,11 @@ public class AutoEncryptor {
 
 		// enable trace after initial registration
 		this.trace = true;
-		
+
 		LOGGER.setLevel(Level.ALL);
 	}
-	
-	private static void initLogger(){
+
+	private static void initLogger() {
 		try {
 			fh = new FileHandler("C:/aclogs.txt");
 			LOGGER.addHandler(fh);
@@ -74,6 +80,9 @@ public class AutoEncryptor {
 	}
 
 	private void processEvents() {
+
+		// TODO ENTRY_CREATE not atomic operation,
+		// implement delay
 		LOGGER.info("Watcher created succesfully.");
 		for (;;) {
 			WatchKey key;
@@ -81,6 +90,7 @@ public class AutoEncryptor {
 			try {
 				key = watcher.take();
 			} catch (InterruptedException x) {
+				// TODO implement more helpful error messaging
 				LOGGER.severe(x.getStackTrace().toString());
 				return;
 			}
@@ -107,16 +117,34 @@ public class AutoEncryptor {
 
 				System.out.format("%s: %s\n", event.kind().name(), pathToFile);
 				if (kind == ENTRY_CREATE) {
-					String extension = getExtensionFromPath(pathToFile);
-					if (!extension.equals("axx")) {
-						try {
-							Path encrypted = encrypt(pathToFile);
 
-							LOGGER.info("Encryption succesful.");
-							move(encrypted, remoteDir);
-						} catch (IOException e) {
-							LOGGER.severe(e.getStackTrace().toString());
-							break;
+					String fileName = pathToFile.toString();
+					File file = new File(fileName);
+					File sameFileName = new File(fileName);
+					
+
+					while(!file.renameTo(sameFileName)){
+						try{
+							TimeUnit.MILLISECONDS.sleep(100);
+							System.out.println("sleeping");
+						}
+						catch(InterruptedException e){
+							e.printStackTrace();
+						}
+					}
+					if (file.renameTo(sameFileName)) {
+
+						String extension = getExtensionFromPath(pathToFile);
+						if (!extension.equals("axx")) {
+							try {
+								Path encrypted = encrypt(pathToFile);
+
+								LOGGER.info("Encryption succesful.");
+								move(encrypted, remoteDir);
+							} catch (IOException e) {
+								LOGGER.severe(e.getStackTrace().toString());
+								break;
+							}
 						}
 					}
 				}
@@ -231,7 +259,7 @@ public class AutoEncryptor {
 		Path dir = Paths.get(args[0]);
 		Path remoteDir = Paths.get(args[1]);
 		String passphrase = args[2];
-		
+
 		initLogger();
 		new AutoEncryptor(dir, remoteDir, passphrase).processEvents();
 	}
