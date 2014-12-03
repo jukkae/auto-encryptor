@@ -106,7 +106,7 @@ public class AutoEncryptor {
 					if (!extension.equals("axx")) {
 						while (!file.renameTo(sameFileName)) {
 							try {
-								LOGGER.info("File not accessible, sleeping.");
+								LOGGER.config("File not accessible, sleeping.");
 								TimeUnit.MILLISECONDS.sleep(100);
 							} catch (InterruptedException e) {
 								LOGGER.warning("Interrupted while sleeping.");
@@ -119,6 +119,9 @@ public class AutoEncryptor {
 								LOGGER.info("Encryption succesful.");
 								move(encrypted, remoteDir);
 							} catch (IOException e) {
+								LOGGER.severe("IO exception when moving the file. File "
+										+ "might already exist or the remote may "
+										+ "be inaccessible.");
 								LOGGER.severe(e.getStackTrace().toString());
 								break;
 							}
@@ -175,7 +178,7 @@ public class AutoEncryptor {
 			LOGGER.info("Process output: " + nextLine);
 		}
 		int exitValue = axCryptProcess.exitValue();
-		System.out.println(exitValue);
+		LOGGER.info("Process exited with value: " + exitValue);
 		if (exitValue == 0) {
 			LOGGER.info("Encryption succesful.");
 			return getEncryptedFilePath(pathToFile);
