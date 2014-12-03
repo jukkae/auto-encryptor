@@ -1,8 +1,6 @@
-import java.nio.channels.FileLock;
 import java.nio.file.*;
 import java.nio.file.WatchEvent.Kind;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 
 import static java.nio.file.StandardWatchEventKinds.*;
@@ -95,8 +93,7 @@ public class AutoEncryptor {
 
 			Path dir = keys.get(key);
 			if (dir == null) {
-				printErrorMessage(Error.DIR_NULL);
-				LOGGER.warning("Non-existent directory.");
+				LOGGER.warning("Non-existent directory or directory not recognized.");
 				continue;
 			}
 
@@ -104,7 +101,6 @@ public class AutoEncryptor {
 				Kind<?> kind = event.kind();
 
 				if (kind == OVERFLOW) {
-					printErrorMessage(Error.OVERFLOW);
 					LOGGER.warning("Overflow error.");
 					continue;
 				}
@@ -164,23 +160,6 @@ public class AutoEncryptor {
 				.concat(filename.toString()));
 		LOGGER.info("Moving file to " + newLocation);
 		Files.move(file, newLocation);
-	}
-
-	public void printErrorMessage(Error error) {
-		switch (error) {
-		case DIR_NULL:
-			System.out
-					.println("WatchKey was not recognized. Try restarting the application.");
-			break;
-		case OVERFLOW:
-			System.out
-					.println("Event overflow detected. Some changes might have been not noticed. "
-							+ "Usually this doesn't mean there's a problem, "
-							+ "but please do check that the encryption was succesfully completed.");
-			break;
-		default:
-			break;
-		}
 	}
 
 	private String getExtensionFromPath(Path path) {
