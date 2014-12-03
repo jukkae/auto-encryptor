@@ -121,21 +121,18 @@ public class AutoEncryptor {
 					String fileName = pathToFile.toString();
 					File file = new File(fileName);
 					File sameFileName = new File(fileName);
-					
 
-					while(!file.renameTo(sameFileName)){
-						try{
-							TimeUnit.MILLISECONDS.sleep(100);
-							System.out.println("sleeping");
+					String extension = getExtensionFromPath(pathToFile);
+					if (!extension.equals("axx")) {
+						while (!file.renameTo(sameFileName)) {
+							try {
+								TimeUnit.MILLISECONDS.sleep(100);
+								System.out.println("sleeping");
+							} catch (InterruptedException e) {
+								e.printStackTrace();
+							}
 						}
-						catch(InterruptedException e){
-							e.printStackTrace();
-						}
-					}
-					if (file.renameTo(sameFileName)) {
-
-						String extension = getExtensionFromPath(pathToFile);
-						if (!extension.equals("axx")) {
+						if (file.renameTo(sameFileName)) {
 							try {
 								Path encrypted = encrypt(pathToFile);
 
