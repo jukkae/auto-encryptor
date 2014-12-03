@@ -126,16 +126,16 @@ public class AutoEncryptor {
 					if (!extension.equals("axx")) {
 						while (!file.renameTo(sameFileName)) {
 							try {
+								LOGGER.info("File not accessible, sleeping.");
 								TimeUnit.MILLISECONDS.sleep(100);
-								System.out.println("sleeping");
 							} catch (InterruptedException e) {
-								e.printStackTrace();
+								LOGGER.severe("Interrupted while sleeping.");
+								LOGGER.severe(e.getStackTrace().toString());
 							}
 						}
 						if (file.renameTo(sameFileName)) {
 							try {
 								Path encrypted = encrypt(pathToFile);
-
 								LOGGER.info("Encryption succesful.");
 								move(encrypted, remoteDir);
 							} catch (IOException e) {
