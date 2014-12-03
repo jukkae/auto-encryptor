@@ -16,7 +16,6 @@ import java.util.logging.SimpleFormatter;
 public class AutoEncryptor {
 	private WatchService watcher;
 	private Map<WatchKey, Path> keys;
-	private boolean trace = false;
 	private Path remoteDir;
 	private String passphrase;
 
@@ -38,9 +37,6 @@ public class AutoEncryptor {
 		this.passphrase = passphrase;
 
 		register(dir);
-
-		// enable trace after initial registration
-		this.trace = true;
 
 		LOGGER.setLevel(Level.ALL);
 	}
@@ -64,16 +60,6 @@ public class AutoEncryptor {
 		LOGGER.info("Registering directory " + dir);
 		WatchKey key = dir.register(watcher, ENTRY_CREATE, ENTRY_DELETE,
 				ENTRY_MODIFY);
-		if (trace) {
-			Path prev = keys.get(key);
-			if (prev == null) {
-				System.out.format("register: %s\n", dir);
-			} else {
-				if (!dir.equals(prev)) {
-					System.out.format("update: %s -> %s\n", prev, dir);
-				}
-			}
-		}
 		keys.put(key, dir);
 	}
 
@@ -101,7 +87,7 @@ public class AutoEncryptor {
 				Kind<?> kind = event.kind();
 
 				if (kind == OVERFLOW) {
-					LOGGER.warning("Overflow error.");
+					LOGGER.warning("Overflow error. Manual check might be necessary.");
 					continue;
 				}
 
@@ -123,8 +109,8 @@ public class AutoEncryptor {
 								LOGGER.info("File not accessible, sleeping.");
 								TimeUnit.MILLISECONDS.sleep(100);
 							} catch (InterruptedException e) {
-								LOGGER.severe("Interrupted while sleeping.");
-								LOGGER.severe(e.getStackTrace().toString());
+								LOGGER.warning("Interrupted while sleeping.");
+								LOGGER.warning(e.getStackTrace().toString());
 							}
 						}
 						if (file.renameTo(sameFileName)) {
@@ -144,10 +130,12 @@ public class AutoEncryptor {
 			// reset key and remove from set if directory no longer accessible
 			boolean valid = key.reset();
 			if (!valid) {
+				LOGGER.info("Directory key " + key
+						+ " is no longer accessible. Removing from keys.");
 				keys.remove(key);
 
-				// all directories are inaccessible
 				if (keys.isEmpty()) {
+					LOGGER.info("All directories are inaccessible. Halting.");
 					break;
 				}
 			}
