@@ -95,7 +95,7 @@ public class AutoEncryptor {
 				Path name = ev.context();
 				Path pathToFile = dir.resolve(name);
 
-				System.out.format("%s: %s\n", event.kind().name(), pathToFile);
+				LOGGER.info(event.kind().name() + ": " + pathToFile);
 				if (kind == ENTRY_CREATE) {
 
 					String fileName = pathToFile.toString();
