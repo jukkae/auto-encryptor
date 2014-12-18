@@ -16,7 +16,9 @@ import java.util.logging.SimpleFormatter;
 public class AutoEncryptor {
 	private WatchService watcher;
 	private Map<WatchKey, Path> keys;
-	private Path remoteDir;
+
+	private Map<Path, Path> directories;
+
 	private String passphrase;
 
 	private final static Logger LOGGER = Logger.getLogger(AutoEncryptor.class
@@ -30,21 +32,17 @@ public class AutoEncryptor {
 		return (WatchEvent<T>) event;
 	}
 
-	public AutoEncryptor(Path dir)
-			throws IOException {
+	public AutoEncryptor() throws IOException {
 
-		this.config = new Properties();
-		InputStream in = this.getClass().getResourceAsStream(
-				"autoEncryptor.properties");
-		config.load(in);
-		in.close();
+		readConfig();
 
 		this.watcher = FileSystems.getDefault().newWatchService();
 		this.keys = new HashMap<WatchKey, Path>();
-		this.remoteDir = Paths.get(config.getProperty("remoteDir"));
+		this.directories = new HashMap<Path, Path>();
+
 		this.passphrase = config.getProperty("passphrase");
 
-		register(dir);
+		register();
 
 		LOGGER.setLevel(Level.ALL);
 	}
@@ -61,6 +59,27 @@ public class AutoEncryptor {
 		} catch (IOException e) {
 			LOGGER.severe("IO exception during initialization.");
 			LOGGER.severe(e.getStackTrace().toString());
+		}
+	}
+
+	private void readConfig() throws IOException {
+		this.config = new Properties();
+		InputStream in = this.getClass().getResourceAsStream(
+				"autoEncryptor.properties");
+		config.load(in);
+		in.close();
+	}
+
+	private void register() throws IOException {
+
+		int i = 1;
+		String p;
+		while ((p = config.getProperty("watchDir" + i)) != null) {
+			Path watchDir = Paths.get(p);
+			Path remoteDir = Paths.get(config.getProperty("remoteDir" + i));
+			directories.put(watchDir, remoteDir);
+			register(watchDir);
+			i++;
 		}
 	}
 
@@ -85,6 +104,10 @@ public class AutoEncryptor {
 				LOGGER.severe(x.getStackTrace().toString());
 				return;
 			}
+
+			Path remote = directories.get(keys.get(key));
+			LOGGER.info("Current watched directory: " + keys.get(key));
+			LOGGER.info("Current remote directory: " + remote);
 
 			Path dir = keys.get(key);
 			if (dir == null) {
@@ -126,7 +149,7 @@ public class AutoEncryptor {
 							try {
 								Path encrypted = encrypt(pathToFile);
 								LOGGER.info("Encryption succesful.");
-								move(encrypted, remoteDir);
+								move(encrypted, remote);
 							} catch (IOException e) {
 								LOGGER.severe("IO exception when moving the file. File "
 										+ "might already exist or the remote may "
@@ -208,7 +231,6 @@ public class AutoEncryptor {
 			dotIndex = lastIndex - 1;
 		String pathNoExt = pathString.substring(0, dotIndex);
 
-		// TODO only works with .axx currently!
 		String newPath;
 		if (!extension.equals(""))
 			newPath = pathNoExt + "-" + extension + ".axx";
@@ -219,21 +241,11 @@ public class AutoEncryptor {
 		return path;
 	}
 
-	public static void usage() {
-		System.out.println("Usage information:");
-		System.out.println("Command line arguments:");
-		System.out.println("watchDir remoteDir passphrase");
-	}
-
 	public static void main(String[] args) throws IOException {
-		// parse arguments-
-		if (args.length != 3)
-			usage();
-
-		Path dir = Paths.get(args[0]);
+		// parse arguments
 
 		initLogger();
-		new AutoEncryptor(dir).processEvents();
+		new AutoEncryptor().processEvents();
 	}
 
 }
