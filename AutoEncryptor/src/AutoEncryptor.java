@@ -23,18 +23,26 @@ public class AutoEncryptor {
 			.getName());
 	private static FileHandler fh;
 	private static SimpleFormatter formatter;
+	private Properties config;
 
 	@SuppressWarnings("unchecked")
 	static <T> WatchEvent<T> cast(WatchEvent<?> event) {
 		return (WatchEvent<T>) event;
 	}
 
-	public AutoEncryptor(Path dir, Path remoteDir, String passphrase)
+	public AutoEncryptor(Path dir)
 			throws IOException {
+
+		this.config = new Properties();
+		InputStream in = this.getClass().getResourceAsStream(
+				"autoEncryptor.properties");
+		config.load(in);
+		in.close();
+
 		this.watcher = FileSystems.getDefault().newWatchService();
 		this.keys = new HashMap<WatchKey, Path>();
-		this.remoteDir = remoteDir;
-		this.passphrase = passphrase;
+		this.remoteDir = Paths.get(config.getProperty("remoteDir"));
+		this.passphrase = config.getProperty("passphrase");
 
 		register(dir);
 
@@ -70,6 +78,7 @@ public class AutoEncryptor {
 			WatchKey key;
 
 			try {
+				LOGGER.config("Getting watch key.");
 				key = watcher.take();
 			} catch (InterruptedException x) {
 				LOGGER.severe("Watcher interrupted.");
@@ -217,16 +226,14 @@ public class AutoEncryptor {
 	}
 
 	public static void main(String[] args) throws IOException {
-		// parse arguments
+		// parse arguments-
 		if (args.length != 3)
 			usage();
 
 		Path dir = Paths.get(args[0]);
-		Path remoteDir = Paths.get(args[1]);
-		String passphrase = args[2];
 
 		initLogger();
-		new AutoEncryptor(dir, remoteDir, passphrase).processEvents();
+		new AutoEncryptor(dir).processEvents();
 	}
 
 }
