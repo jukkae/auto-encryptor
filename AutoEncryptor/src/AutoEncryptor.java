@@ -76,12 +76,19 @@ public class AutoEncryptor {
 		String p;
 		while ((p = config.getProperty("watchDir" + i)) != null) {
 			Path watchDir = Paths.get(p);
-			Path remoteDir = Paths.get(config.getProperty("remoteDir" + i));
-			LOGGER.info("Putting pair " + watchDir + " - " + remoteDir
-					+ " into correspondence map.");
-			directories.put(watchDir, remoteDir);
-			registerDirectory(watchDir);
-			i++;
+			if (config.getProperty("remoteDir" + i) != null) {
+				Path remoteDir = Paths.get(config.getProperty("remoteDir" + i));
+				LOGGER.info("Putting pair " + watchDir + " - " + remoteDir
+						+ " into correspondence map.");
+				directories.put(watchDir, remoteDir);
+				registerDirectory(watchDir);
+				i++;
+			} else {
+				LOGGER.severe("The amount of remote directories is not equivalent "
+						+ "to the amount of watched directories! "
+						+ "Please check your configuration file.");
+				break;
+			}
 		}
 	}
 
