@@ -77,13 +77,15 @@ public class AutoEncryptor {
 		while ((p = config.getProperty("watchDir" + i)) != null) {
 			Path watchDir = Paths.get(p);
 			Path remoteDir = Paths.get(config.getProperty("remoteDir" + i));
+			LOGGER.info("Putting pair " + watchDir + " - " + remoteDir
+					+ " into correspondence map.");
 			directories.put(watchDir, remoteDir);
-			register(watchDir);
+			registerDirectory(watchDir);
 			i++;
 		}
 	}
 
-	private void register(Path dir) throws IOException {
+	private void registerDirectory(Path dir) throws IOException {
 		LOGGER.info("Registering directory " + dir);
 		WatchKey key = dir.register(watcher, ENTRY_CREATE, ENTRY_DELETE,
 				ENTRY_MODIFY);
