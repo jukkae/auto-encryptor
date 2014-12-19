@@ -16,7 +16,6 @@ import java.util.logging.SimpleFormatter;
 public class AutoEncryptor {
 	private WatchService watcher;
 	private Map<WatchKey, Path> keys;
-
 	private Map<Path, Path> directories;
 
 	private String passphrase;
@@ -35,6 +34,7 @@ public class AutoEncryptor {
 	public AutoEncryptor() throws IOException {
 
 		readConfig();
+		initLogger();
 
 		this.watcher = FileSystems.getDefault().newWatchService();
 		this.keys = new HashMap<WatchKey, Path>();
@@ -47,9 +47,9 @@ public class AutoEncryptor {
 		LOGGER.setLevel(Level.ALL);
 	}
 
-	private static void initLogger() {
+	private void initLogger() {
 		try {
-			fh = new FileHandler("C:/aclogs.txt");
+			fh = new FileHandler(config.getProperty("logLocation"));
 			LOGGER.addHandler(fh);
 			formatter = new SimpleFormatter();
 			fh.setFormatter(formatter);
@@ -114,15 +114,15 @@ public class AutoEncryptor {
 				return;
 			}
 
-			Path remote = directories.get(keys.get(key));
-			LOGGER.info("Current watched directory: " + keys.get(key));
-			LOGGER.info("Current remote directory: " + remote);
-
 			Path dir = keys.get(key);
 			if (dir == null) {
 				LOGGER.warning("Non-existent directory or directory not recognized.");
 				continue;
 			}
+			
+			Path remote = directories.get(keys.get(key));
+			LOGGER.info("Current watched directory: " + dir);
+			LOGGER.info("Current remote directory: " + remote);
 
 			for (WatchEvent<?> event : key.pollEvents()) {
 				Kind<?> kind = event.kind();
@@ -251,9 +251,6 @@ public class AutoEncryptor {
 	}
 
 	public static void main(String[] args) throws IOException {
-		// parse arguments
-
-		initLogger();
 		new AutoEncryptor().processEvents();
 	}
 
