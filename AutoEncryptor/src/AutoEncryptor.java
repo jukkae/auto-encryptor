@@ -64,8 +64,15 @@ public class AutoEncryptor {
 
 	private void readConfig() throws IOException {
 		this.config = new Properties();
-		InputStream in = this.getClass().getResourceAsStream(
-				"autoEncryptor.properties");
+		InputStream in;
+
+		if (new File("ae.properties").exists()) {
+			in = this.getClass().getResourceAsStream("ae.properties");
+		} else {
+			in = this.getClass()
+					.getResourceAsStream("autoEncryptor.properties");
+		}
+
 		config.load(in);
 		in.close();
 	}
@@ -119,7 +126,7 @@ public class AutoEncryptor {
 				LOGGER.warning("Non-existent directory or directory not recognized.");
 				continue;
 			}
-			
+
 			Path remote = directories.get(keys.get(key));
 			LOGGER.info("Current watched directory: " + dir);
 			LOGGER.info("Current remote directory: " + remote);
