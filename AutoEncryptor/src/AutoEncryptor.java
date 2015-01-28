@@ -1,6 +1,7 @@
 import java.nio.file.*;
 import java.nio.file.WatchEvent.Kind;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 
 import static java.nio.file.StandardWatchEventKinds.*;
@@ -12,6 +13,8 @@ import java.util.logging.FileHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 public class AutoEncryptor {
 	private WatchService watcher;
@@ -150,8 +153,11 @@ public class AutoEncryptor {
 					File file = new File(fileName);
 					File sameFileName = new File(fileName);
 
-					String extension = getExtensionFromPath(pathToFile);
-					if (!extension.equals("axx")) {
+					// If directory, zip recursively
+					if (file.isDirectory()) {
+						LOGGER.info("File " + pathToFile
+								+ " is directory, zipping...");
+
 						while (!file.renameTo(sameFileName)) {
 							try {
 								LOGGER.config("File not accessible, sleeping.");
@@ -163,15 +169,39 @@ public class AutoEncryptor {
 						}
 						if (file.renameTo(sameFileName)) {
 							try {
-								Path encrypted = encrypt(pathToFile);
-								LOGGER.info("Encryption succesful.");
-								move(encrypted, remote);
+								zipDirectory(file);
 							} catch (IOException e) {
-								LOGGER.severe("IO exception when moving the file. File "
-										+ "might already exist or the remote may "
-										+ "be inaccessible.");
-								LOGGER.severe(e.getStackTrace().toString());
-								break;
+								LOGGER.severe("Something went wrong while zipping!");
+							}
+						}
+					}
+
+					// If an ordinary file, encrypt
+					else {
+
+						String extension = getExtensionFromPath(pathToFile);
+						if (!extension.equals("axx")) {
+							while (!file.renameTo(sameFileName)) {
+								try {
+									LOGGER.config("File not accessible, sleeping.");
+									TimeUnit.MILLISECONDS.sleep(100);
+								} catch (InterruptedException e) {
+									LOGGER.warning("Interrupted while sleeping.");
+									LOGGER.warning(e.getStackTrace().toString());
+								}
+							}
+							if (file.renameTo(sameFileName)) {
+								try {
+									Path encrypted = encrypt(pathToFile);
+									LOGGER.info("Encryption succesful.");
+									move(encrypted, remote);
+								} catch (IOException e) {
+									LOGGER.severe("IO exception when moving the file. File "
+											+ "might already exist or the remote may "
+											+ "be inaccessible.");
+									LOGGER.severe(e.getStackTrace().toString());
+									break;
+								}
 							}
 						}
 					}
@@ -190,6 +220,43 @@ public class AutoEncryptor {
 					break;
 				}
 			}
+		}
+	}
+
+	private boolean isAccessible(File file) {
+		// TODO finish this method
+		return false;
+	}
+
+	private void zipDirectory(File file) throws IOException {
+		String zipFileName = file.getCanonicalPath().concat(".zip");
+		ZipOutputStream out = new ZipOutputStream(new FileOutputStream(
+				zipFileName));
+		LOGGER.info("Creating : " + zipFileName);
+		addDir(file, out);
+		out.close();
+	}
+
+	private void addDir(File file, ZipOutputStream out) throws IOException {
+		File[] files = file.listFiles();
+		byte[] tmpBuf = new byte[1024];
+
+		for (int i = 0; i < files.length; i++) {
+			if (files[i].isDirectory()) {
+				addDir(files[i], out);
+				continue;
+			}
+			FileInputStream in = new FileInputStream(
+					files[i].getAbsolutePath());
+			LOGGER.info("Adding: " + files[i].getAbsolutePath());
+			out.putNextEntry(new ZipEntry(files[i].getAbsolutePath()));
+			// TODO change to RELATIVE paths
+			int len;
+			while ((len = in.read(tmpBuf)) > 0) {
+				out.write(tmpBuf, 0, len);
+			}
+			out.closeEntry();
+			in.close();
 		}
 	}
 
