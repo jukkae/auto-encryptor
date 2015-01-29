@@ -211,7 +211,8 @@ public class AutoEncryptor {
 									LOGGER.severe("IO exception when moving the file. File "
 											+ "might already exist or the remote may "
 											+ "be inaccessible.");
-									LOGGER.severe(e.getStackTrace().toString());
+									LOGGER.severe(e.toString());
+									LOGGER.severe(e.getMessage());
 									break;
 								}
 							}
@@ -289,16 +290,20 @@ public class AutoEncryptor {
 	}
 
 	private void move(Path file, Path newLocation) throws IOException {
+		LOGGER.finest("Getting filename for " + file);
 		Path filename = file.getFileName();
+		LOGGER.finest("Got filename for " + file);
+		LOGGER.finest("Getting new location " + newLocation);
 		newLocation = Paths.get(newLocation.toString().concat("\\")
 				.concat(filename.toString()));
+		LOGGER.finest("Got new location " + newLocation);
 		LOGGER.config("Moving file " + filename + " to " + newLocation);
 		Files.move(file, newLocation);
 	}
 
 	private String getExtensionFromPath(Path path) {
 		String extension = "";
-		int i = path.toString().lastIndexOf('.');
+			int i = path.toString().lastIndexOf('.');
 		if (i > 0) {
 			extension = path.toString().substring(i + 1);
 		}
