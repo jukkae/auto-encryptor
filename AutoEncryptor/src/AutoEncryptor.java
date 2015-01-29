@@ -1,7 +1,6 @@
 import java.nio.file.*;
 import java.nio.file.WatchEvent.Kind;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 
 import static java.nio.file.StandardWatchEventKinds.*;
@@ -25,6 +24,7 @@ public class AutoEncryptor {
 
 	private final static Logger LOGGER = Logger.getLogger(AutoEncryptor.class
 			.getName());
+	private Level logLevel;
 	private static FileHandler fh;
 	private static SimpleFormatter formatter;
 	private Properties config;
@@ -39,6 +39,10 @@ public class AutoEncryptor {
 		readConfig();
 		initLogger();
 
+		this.logLevel = Level.parse(config.getProperty("logLevel"));
+		LOGGER.setLevel(logLevel);
+		LOGGER.info("Log level " + logLevel);
+
 		this.watcher = FileSystems.getDefault().newWatchService();
 		this.keys = new HashMap<WatchKey, Path>();
 		this.directories = new HashMap<Path, Path>();
@@ -46,8 +50,6 @@ public class AutoEncryptor {
 		this.passphrase = config.getProperty("passphrase");
 
 		register();
-
-		LOGGER.setLevel(Level.ALL);
 	}
 
 	private void initLogger() {
@@ -88,8 +90,8 @@ public class AutoEncryptor {
 			Path watchDir = Paths.get(p);
 			if (config.getProperty("remoteDir" + i) != null) {
 				Path remoteDir = Paths.get(config.getProperty("remoteDir" + i));
-				LOGGER.info("Putting pair " + watchDir + " - " + remoteDir
-						+ " into correspondence map.");
+				LOGGER.info("Watching: " + watchDir + " - Remote is: "
+						+ remoteDir);
 				directories.put(watchDir, remoteDir);
 				registerDirectory(watchDir);
 				i++;
@@ -100,10 +102,11 @@ public class AutoEncryptor {
 				break;
 			}
 		}
+		LOGGER.fine("Watcher created succesfully.");
 	}
 
 	private void registerDirectory(Path dir) throws IOException {
-		LOGGER.info("Registering directory " + dir);
+		LOGGER.config("Registering directory " + dir);
 		WatchKey key = dir.register(watcher, ENTRY_CREATE, ENTRY_DELETE,
 				ENTRY_MODIFY);
 		keys.put(key, dir);
@@ -111,13 +114,14 @@ public class AutoEncryptor {
 
 	private void processEvents() {
 
-		LOGGER.info("Watcher created succesfully.");
+		LOGGER.info("Watching file system for changes in specified directories.");
 		for (;;) {
 			WatchKey key;
 
 			try {
 				LOGGER.config("Getting watch key.");
 				key = watcher.take();
+				LOGGER.config("Watch key: " + key);
 			} catch (InterruptedException x) {
 				LOGGER.severe("Watcher interrupted.");
 				LOGGER.severe(x.getStackTrace().toString());
@@ -131,14 +135,14 @@ public class AutoEncryptor {
 			}
 
 			Path remote = directories.get(keys.get(key));
-			LOGGER.info("Current watched directory: " + dir);
-			LOGGER.info("Current remote directory: " + remote);
+			LOGGER.fine("Current watched directory: " + dir);
+			LOGGER.fine("Current remote directory: " + remote);
 
 			for (WatchEvent<?> event : key.pollEvents()) {
 				Kind<?> kind = event.kind();
 
 				if (kind == OVERFLOW) {
-					LOGGER.warning("Overflow error. Manual check might be necessary.");
+					LOGGER.warning("Overflow error. Manual check necessary.");
 					continue;
 				}
 
@@ -146,7 +150,7 @@ public class AutoEncryptor {
 				Path name = ev.context();
 				Path pathToFile = dir.resolve(name);
 
-				LOGGER.info(event.kind().name() + ": " + pathToFile);
+				LOGGER.config(event.kind().name() + ": " + pathToFile);
 				if (kind == ENTRY_CREATE) {
 
 					String fileName = pathToFile.toString();
@@ -155,7 +159,7 @@ public class AutoEncryptor {
 
 					// If directory, zip recursively
 					if (file.isDirectory()) {
-						LOGGER.info("File " + pathToFile
+						LOGGER.config("File " + pathToFile
 								+ " is directory, zipping...");
 
 						while (!file.renameTo(sameFileName)) {
@@ -163,8 +167,9 @@ public class AutoEncryptor {
 								LOGGER.config("File not accessible, sleeping.");
 								TimeUnit.MILLISECONDS.sleep(100);
 							} catch (InterruptedException e) {
-								LOGGER.warning("Interrupted while sleeping.");
-								LOGGER.warning(e.getStackTrace().toString());
+								LOGGER.severe("Interrupted while sleeping. File: "
+										+ pathToFile);
+								LOGGER.severe(e.getStackTrace().toString());
 							}
 						}
 						if (file.renameTo(sameFileName)) {
@@ -186,8 +191,8 @@ public class AutoEncryptor {
 									LOGGER.config("File not accessible, sleeping.");
 									TimeUnit.MILLISECONDS.sleep(100);
 								} catch (InterruptedException e) {
-									LOGGER.warning("Interrupted while sleeping.");
-									LOGGER.warning(e.getStackTrace().toString());
+									LOGGER.severe("Interrupted while sleeping.");
+									LOGGER.severe(e.getStackTrace().toString());
 								}
 							}
 							if (file.renameTo(sameFileName)) {
@@ -211,28 +216,23 @@ public class AutoEncryptor {
 			// reset key and remove from set if directory no longer accessible
 			boolean valid = key.reset();
 			if (!valid) {
-				LOGGER.info("Directory key " + key
+				LOGGER.severe("Directory key " + key
 						+ " is no longer accessible. Removing from keys.");
 				keys.remove(key);
 
 				if (keys.isEmpty()) {
-					LOGGER.info("All directories are inaccessible. Halting.");
+					LOGGER.severe("All directories are inaccessible. Halting.");
 					break;
 				}
 			}
 		}
 	}
 
-	private boolean isAccessible(File file) {
-		// TODO finish this method
-		return false;
-	}
-
 	private void zipDirectory(File file) throws IOException {
 		String zipFileName = file.getCanonicalPath().concat(".zip");
 		ZipOutputStream out = new ZipOutputStream(new FileOutputStream(
 				zipFileName));
-		LOGGER.info("Creating : " + zipFileName);
+		LOGGER.config("Creating : " + zipFileName);
 		addDir(file, out);
 		out.close();
 	}
@@ -246,11 +246,11 @@ public class AutoEncryptor {
 				addDir(files[i], out);
 				continue;
 			}
-			FileInputStream in = new FileInputStream(
-					files[i].getAbsolutePath());
-			LOGGER.info("Adding: " + files[i].getAbsolutePath());
-			out.putNextEntry(new ZipEntry(files[i].getAbsolutePath()));
-			// TODO change to RELATIVE paths
+			FileInputStream in = new FileInputStream(files[i].getAbsolutePath());
+			LOGGER.config("Adding: " + files[i].getAbsolutePath());
+			String relativePath = file.toURI().relativize(files[i].toURI())
+					.toString();
+			out.putNextEntry(new ZipEntry(relativePath));
 			int len;
 			while ((len = in.read(tmpBuf)) > 0) {
 				out.write(tmpBuf, 0, len);
@@ -278,7 +278,7 @@ public class AutoEncryptor {
 	}
 
 	private Path encrypt(Path pathToFile) throws IOException {
-		LOGGER.info("Encrypting.");
+		LOGGER.info("Encrypting file " + pathToFile);
 		Process axCryptProcess;
 
 		axCryptProcess = Runtime.getRuntime().exec(
@@ -290,15 +290,16 @@ public class AutoEncryptor {
 		BufferedReader bReader = new BufferedReader(reader);
 		String nextLine = null;
 		while ((nextLine = bReader.readLine()) != null) {
-			LOGGER.info("Process output: " + nextLine);
+			LOGGER.config("Process output: " + nextLine);
 		}
 		int exitValue = axCryptProcess.exitValue();
-		LOGGER.info("Process exited with value: " + exitValue);
+		LOGGER.config("Process exited with value: " + exitValue);
 		if (exitValue == 0) {
-			LOGGER.info("Encryption succesful.");
+			LOGGER.info("Encryption of file " + pathToFile + " succesful.");
 			return getEncryptedFilePath(pathToFile);
 		} else {
-			LOGGER.severe("Encryption not succesful.");
+			LOGGER.severe("Encryption of file " + pathToFile
+					+ " not succesful.");
 			throw (new IOException());
 		}
 
