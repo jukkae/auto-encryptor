@@ -351,30 +351,42 @@ public class AutoEncryptor {
 	}
 
 	private Path encrypt(Path pathToFile) throws IOException {
-		LOGGER.config("Encrypting file " + pathToFile);
-		Process axCryptProcess;
 
-		axCryptProcess = Runtime.getRuntime().exec(
-				"C:\\Program Files\\Axantum\\Axcrypt\\AxCrypt -b 2 -e -k "
-						+ "\"" + passphrase + "\"" + " -z " + "\"" + pathToFile
-						+ "\"");
-		InputStream stream = axCryptProcess.getInputStream();
-		Reader reader = new InputStreamReader(stream);
-		BufferedReader bReader = new BufferedReader(reader);
-		String nextLine = null;
-		while ((nextLine = bReader.readLine()) != null) {
-			LOGGER.config("Process output: " + nextLine);
-		}
-		int exitValue = axCryptProcess.exitValue();
-		LOGGER.config("Process exited with value: " + exitValue);
-		if (exitValue == 0) {
+		String commandString = createEncryptionStringForPath(pathToFile);
+		if (executeExternalCommand(commandString)) {
 			return getEncryptedFilePath(pathToFile);
 		} else {
 			LOGGER.severe("Encryption of file " + pathToFile
 					+ " not succesful.");
 			throw (new IOException());
 		}
+	}
 
+	private String createEncryptionStringForPath(Path pathToFile) {
+		String encryptionString = "C:\\Program Files\\Axantum\\Axcrypt\\AxCrypt -b 2 -e -k "
+				+ "\"" + passphrase + "\"" + " -z " + "\"" + pathToFile + "\"";
+		return encryptionString;
+	}
+
+	private boolean executeExternalCommand(String command) throws IOException {
+		Process process;
+
+		process = Runtime.getRuntime().exec(command);
+		InputStream stream = process.getInputStream();
+		Reader reader = new InputStreamReader(stream);
+		BufferedReader bReader = new BufferedReader(reader);
+		String nextLine = null;
+		while ((nextLine = bReader.readLine()) != null) {
+			LOGGER.config("Process output: " + nextLine);
+		}
+		int exitValue = process.exitValue();
+		LOGGER.config("Process exited with value: " + exitValue);
+		if (exitValue == 0) {
+			return true;
+		} else {
+			LOGGER.severe("External command not succesful.");
+			return false;
+		}
 	}
 
 	private Path getEncryptedFilePath(Path path) {
