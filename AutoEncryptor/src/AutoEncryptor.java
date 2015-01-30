@@ -209,72 +209,74 @@ public class AutoEncryptor {
 
 		// If an ordinary file, encrypt
 		else {
-			String fileName = pathToFile.toString();
-			File file = new File(fileName);
-			File sameFileName = new File(fileName);
-			
-			String extension = getExtensionFromPath(pathToFile);
-			if (!extension.equals("axx")) {
-				while (!file.renameTo(sameFileName)) {
-					try {
-						LOGGER.finest("File not accessible, sleeping.");
-						TimeUnit.MILLISECONDS.sleep(100);
-					} catch (InterruptedException e) {
-						logExceptionAsSevere(e, "Interrupted while sleeping.");
-					}
-				}
-				if (file.renameTo(sameFileName)) {
-					LOGGER.fine("File " + pathToFile + " accessible.");
-					try {
-						Path encrypted = encrypt(pathToFile);
-						LOGGER.info("Encrypted " + encrypted + " succesfully.");
-						move(encrypted, remote);
-						LOGGER.info("Moved " + encrypted + " to " + remote
-								+ " succesfully.");
-					} catch (IOException e) {
-						logExceptionAsSevere(e, "IO exception when moving the file. File "
-								+ "might already exist or the remote may "
-								+ "be inaccessible or not reachable due to for example network problems.");
-						return;
-					}
+			encryptFile(pathToFile, remote);
+		}
+
+	}
+
+	private void encryptFile(Path pathToFile, Path remote) {
+
+		String extension = getExtensionFromPath(pathToFile);
+		if (!extension.equals("axx")) {
+			waitUntilPathIsAccessible(pathToFile);
+			if (pathIsAccessible(pathToFile)) {
+				LOGGER.fine("File " + pathToFile + " accessible.");
+				try {
+					Path encrypted = encrypt(pathToFile);
+					LOGGER.info("Encrypted " + encrypted + " succesfully.");
+					move(encrypted, remote);
+					LOGGER.info("Moved " + encrypted + " to " + remote
+							+ " succesfully.");
+				} catch (IOException e) {
+					logExceptionAsSevere(
+							e,
+							"IO exception when moving the file. File "
+									+ "might already exist or the remote may "
+									+ "be inaccessible or not reachable due to for example network problems.");
+					return;
 				}
 			}
 		}
+	}
 
+	void waitUntilPathIsAccessible(Path path) {
+		while (!pathIsAccessible(path)) {
+			try {
+				LOGGER.finest("File not accessible, sleeping.");
+				TimeUnit.MILLISECONDS.sleep(100);
+			} catch (InterruptedException e) {
+				logExceptionAsSevere(e, "Interrupted while sleeping.");
+			}
+		}
+	}
+
+	boolean pathIsAccessible(Path path) {
+		String fileName = path.toString();
+		File file = new File(fileName);
+		File sameFileName = new File(fileName);
+		return file.renameTo(sameFileName);
 	}
 
 	private void zipRecursively(Path pathToFile) {
 		LOGGER.config("File " + pathToFile + " is directory, zipping.");
 
-		String fileName = pathToFile.toString();
-		File file = new File(fileName);
-		File sameFileName = new File(fileName);
-		
-		while (!file.renameTo(sameFileName)) {
-			try {
-				LOGGER.finest("File " + pathToFile
-						+ " not accessible, sleeping.");
-				TimeUnit.MILLISECONDS.sleep(100);
-			} catch (InterruptedException e) {
-				logExceptionAsSevere(e,
-						"Interrupted while sleeping. File: "
-								.concat(pathToFile.toString()));
-			}
-		}
-		if (file.renameTo(sameFileName)) {
+		waitUntilPathIsAccessible(pathToFile);
+		if (pathIsAccessible(pathToFile)) {
 			LOGGER.fine("File " + pathToFile + " accessible.");
 			try {
-				zipDirectory(file);
+				zipDirectory(pathToFile);
 				return;
 			} catch (IOException e) {
-				logExceptionAsSevere(e,
-						"Something went wrong while zipping!");
+				logExceptionAsSevere(e, "Something went wrong while zipping!");
 			}
 		}
-		
+
 	}
 
-	private void zipDirectory(File file) throws IOException {
+	private void zipDirectory(Path path) throws IOException {
+		String fileName = path.toString();
+		File file = new File(fileName);
+
 		String zipFileName = file.getCanonicalPath().concat(".zip");
 		ZipOutputStream out = new ZipOutputStream(new FileOutputStream(
 				zipFileName));
