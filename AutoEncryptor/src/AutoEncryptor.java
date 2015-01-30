@@ -209,12 +209,12 @@ public class AutoEncryptor {
 
 		// If an ordinary file, encrypt
 		else {
-			encryptFile(pathToFile, remote);
+			encryptAndMoveFile(pathToFile, remote);
 		}
 
 	}
 
-	private void encryptFile(Path pathToFile, Path remote) {
+	private void encryptAndMoveFile(Path pathToFile, Path remote) {
 
 		String extension = getExtensionFromPath(pathToFile);
 		if (!extension.equals("axx")) {
