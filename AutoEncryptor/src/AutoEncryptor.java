@@ -119,12 +119,9 @@ public class AutoEncryptor {
 			WatchKey key;
 
 			try {
-				LOGGER.finest("Getting watch key.");
-				key = watcher.take();
-				LOGGER.finest("Watch key: " + key);
-			} catch (InterruptedException x) {
-				LOGGER.severe("Watcher interrupted.");
-				LOGGER.severe(x.getStackTrace().toString());
+				key = getWatchKey();
+			} catch (InterruptedException e) {
+				logExceptionAsSevere(e, "Watcher interrupted.");
 				return;
 			}
 
@@ -145,6 +142,20 @@ public class AutoEncryptor {
 		}
 	}
 
+	private void logExceptionAsSevere(Exception e, String message) {
+		LOGGER.severe(message);
+		LOGGER.severe(e.toString());
+		LOGGER.severe(e.getMessage());
+		return;
+	}
+
+	private WatchKey getWatchKey() throws InterruptedException {
+		LOGGER.finest("Getting watch key.");
+		WatchKey key = watcher.take();
+		LOGGER.finest("Watch key: " + key);
+		return key;
+	}
+
 	/**
 	 * Process events for one key.
 	 * 
@@ -152,11 +163,11 @@ public class AutoEncryptor {
 	 */
 	private void processEvents(WatchKey key) {
 
-		Path dir = keys.get(key);
-		if (dir == null) {
-			LOGGER.warning("Non-existent directory or directory not recognized.");
+		if (directoryIsNull(key)) {
+			return;
 		}
 
+		Path dir = keys.get(key);
 		Path remote = directories.get(keys.get(key));
 		LOGGER.fine("Current watched directory: " + dir);
 		LOGGER.fine("Current remote directory: " + remote);
@@ -175,6 +186,14 @@ public class AutoEncryptor {
 		}
 	}
 
+	private boolean directoryIsNull(WatchKey key) {
+		if (keys.get(key) == null) {
+			LOGGER.warning("Watched directory is non-existent or not recognized.");
+			return true;
+		}
+		return false;
+	}
+
 	private void processCreation(WatchEvent<?> event, Path dir, Path remote) {
 
 		WatchEvent<Path> ev = cast(event);
@@ -183,38 +202,17 @@ public class AutoEncryptor {
 
 		LOGGER.config(event.kind().name() + ": " + pathToFile);
 
-		String fileName = pathToFile.toString();
-		File file = new File(fileName);
-		File sameFileName = new File(fileName);
-
 		// If directory, zip recursively
-		if (file.isDirectory()) {
-			LOGGER.config("File " + pathToFile + " is directory, zipping.");
-
-			while (!file.renameTo(sameFileName)) {
-				try {
-					LOGGER.finest("File " + pathToFile
-							+ " not accessible, sleeping.");
-					TimeUnit.MILLISECONDS.sleep(100);
-				} catch (InterruptedException e) {
-					LOGGER.severe("Interrupted while sleeping. File: "
-							+ pathToFile);
-					LOGGER.severe(e.getStackTrace().toString());
-				}
-			}
-			if (file.renameTo(sameFileName)) {
-				LOGGER.fine("File " + pathToFile + " accessible.");
-				try {
-					zipDirectory(file);
-					return;
-				} catch (IOException e) {
-					LOGGER.severe("Something went wrong while zipping!");
-				}
-			}
+		if (new File(pathToFile.toString()).isDirectory()) {
+			zipRecursively(pathToFile);
 		}
 
 		// If an ordinary file, encrypt
 		else {
+			String fileName = pathToFile.toString();
+			File file = new File(fileName);
+			File sameFileName = new File(fileName);
+			
 			String extension = getExtensionFromPath(pathToFile);
 			if (!extension.equals("axx")) {
 				while (!file.renameTo(sameFileName)) {
@@ -222,8 +220,7 @@ public class AutoEncryptor {
 						LOGGER.finest("File not accessible, sleeping.");
 						TimeUnit.MILLISECONDS.sleep(100);
 					} catch (InterruptedException e) {
-						LOGGER.severe("Interrupted while sleeping.");
-						LOGGER.severe(e.getStackTrace().toString());
+						logExceptionAsSevere(e, "Interrupted while sleeping.");
 					}
 				}
 				if (file.renameTo(sameFileName)) {
@@ -235,17 +232,46 @@ public class AutoEncryptor {
 						LOGGER.info("Moved " + encrypted + " to " + remote
 								+ " succesfully.");
 					} catch (IOException e) {
-						LOGGER.severe("IO exception when moving the file. File "
+						logExceptionAsSevere(e, "IO exception when moving the file. File "
 								+ "might already exist or the remote may "
-								+ "be inaccessible.");
-						LOGGER.severe(e.toString());
-						LOGGER.severe(e.getMessage());
+								+ "be inaccessible or not reachable due to for example network problems.");
 						return;
 					}
 				}
 			}
 		}
 
+	}
+
+	private void zipRecursively(Path pathToFile) {
+		LOGGER.config("File " + pathToFile + " is directory, zipping.");
+
+		String fileName = pathToFile.toString();
+		File file = new File(fileName);
+		File sameFileName = new File(fileName);
+		
+		while (!file.renameTo(sameFileName)) {
+			try {
+				LOGGER.finest("File " + pathToFile
+						+ " not accessible, sleeping.");
+				TimeUnit.MILLISECONDS.sleep(100);
+			} catch (InterruptedException e) {
+				logExceptionAsSevere(e,
+						"Interrupted while sleeping. File: "
+								.concat(pathToFile.toString()));
+			}
+		}
+		if (file.renameTo(sameFileName)) {
+			LOGGER.fine("File " + pathToFile + " accessible.");
+			try {
+				zipDirectory(file);
+				return;
+			} catch (IOException e) {
+				logExceptionAsSevere(e,
+						"Something went wrong while zipping!");
+			}
+		}
+		
 	}
 
 	private void zipDirectory(File file) throws IOException {
