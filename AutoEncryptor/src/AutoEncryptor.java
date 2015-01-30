@@ -128,98 +128,7 @@ public class AutoEncryptor {
 				return;
 			}
 
-			Path dir = keys.get(key);
-			if (dir == null) {
-				LOGGER.warning("Non-existent directory or directory not recognized.");
-				continue;
-			}
-
-			Path remote = directories.get(keys.get(key));
-			LOGGER.fine("Current watched directory: " + dir);
-			LOGGER.fine("Current remote directory: " + remote);
-
-			for (WatchEvent<?> event : key.pollEvents()) {
-				Kind<?> kind = event.kind();
-
-				if (kind == OVERFLOW) {
-					LOGGER.warning("Overflow error. Manual check necessary.");
-					continue;
-				}
-
-				WatchEvent<Path> ev = cast(event);
-				Path name = ev.context();
-				Path pathToFile = dir.resolve(name);
-
-				LOGGER.config(event.kind().name() + ": " + pathToFile);
-				if (kind == ENTRY_CREATE) {
-
-					String fileName = pathToFile.toString();
-					File file = new File(fileName);
-					File sameFileName = new File(fileName);
-
-					// If directory, zip recursively
-					if (file.isDirectory()) {
-						LOGGER.config("File " + pathToFile
-								+ " is directory, zipping.");
-
-						while (!file.renameTo(sameFileName)) {
-							try {
-								LOGGER.finest("File " + pathToFile
-										+ " not accessible, sleeping.");
-								TimeUnit.MILLISECONDS.sleep(100);
-							} catch (InterruptedException e) {
-								LOGGER.severe("Interrupted while sleeping. File: "
-										+ pathToFile);
-								LOGGER.severe(e.getStackTrace().toString());
-							}
-						}
-						if (file.renameTo(sameFileName)) {
-							LOGGER.fine("File " + pathToFile + " accessible.");
-							try {
-								zipDirectory(file);
-							} catch (IOException e) {
-								LOGGER.severe("Something went wrong while zipping!");
-							}
-						}
-					}
-
-					// If an ordinary file, encrypt
-					else {
-
-						String extension = getExtensionFromPath(pathToFile);
-						if (!extension.equals("axx")) {
-							while (!file.renameTo(sameFileName)) {
-								try {
-									LOGGER.finest("File not accessible, sleeping.");
-									TimeUnit.MILLISECONDS.sleep(100);
-								} catch (InterruptedException e) {
-									LOGGER.severe("Interrupted while sleeping.");
-									LOGGER.severe(e.getStackTrace().toString());
-								}
-							}
-							if (file.renameTo(sameFileName)) {
-								LOGGER.fine("File " + pathToFile
-										+ " accessible.");
-								try {
-									Path encrypted = encrypt(pathToFile);
-									LOGGER.info("Encrypted " + encrypted
-											+ " succesfully.");
-									move(encrypted, remote);
-									LOGGER.info("Moved " + encrypted + " to "
-											+ remote + " succesfully.");
-								} catch (IOException e) {
-									LOGGER.severe("IO exception when moving the file. File "
-											+ "might already exist or the remote may "
-											+ "be inaccessible.");
-									LOGGER.severe(e.toString());
-									LOGGER.severe(e.getMessage());
-									break;
-								}
-							}
-						}
-					}
-				}
-			}
+			processEvents(key);
 
 			// reset key and remove from set if directory no longer accessible
 			boolean valid = key.reset();
@@ -234,6 +143,109 @@ public class AutoEncryptor {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Process events for one key.
+	 * 
+	 * @param key
+	 */
+	private void processEvents(WatchKey key) {
+
+		Path dir = keys.get(key);
+		if (dir == null) {
+			LOGGER.warning("Non-existent directory or directory not recognized.");
+		}
+
+		Path remote = directories.get(keys.get(key));
+		LOGGER.fine("Current watched directory: " + dir);
+		LOGGER.fine("Current remote directory: " + remote);
+
+		for (WatchEvent<?> event : key.pollEvents()) {
+			Kind<?> kind = event.kind();
+
+			if (kind == OVERFLOW) {
+				LOGGER.warning("Overflow error. Manual check necessary.");
+				continue;
+			}
+
+			if (kind == ENTRY_CREATE) {
+				processCreation(event, dir, remote);
+			}
+		}
+	}
+
+	private void processCreation(WatchEvent<?> event, Path dir, Path remote) {
+
+		WatchEvent<Path> ev = cast(event);
+		Path name = ev.context();
+		Path pathToFile = dir.resolve(name);
+
+		LOGGER.config(event.kind().name() + ": " + pathToFile);
+
+		String fileName = pathToFile.toString();
+		File file = new File(fileName);
+		File sameFileName = new File(fileName);
+
+		// If directory, zip recursively
+		if (file.isDirectory()) {
+			LOGGER.config("File " + pathToFile + " is directory, zipping.");
+
+			while (!file.renameTo(sameFileName)) {
+				try {
+					LOGGER.finest("File " + pathToFile
+							+ " not accessible, sleeping.");
+					TimeUnit.MILLISECONDS.sleep(100);
+				} catch (InterruptedException e) {
+					LOGGER.severe("Interrupted while sleeping. File: "
+							+ pathToFile);
+					LOGGER.severe(e.getStackTrace().toString());
+				}
+			}
+			if (file.renameTo(sameFileName)) {
+				LOGGER.fine("File " + pathToFile + " accessible.");
+				try {
+					zipDirectory(file);
+					return;
+				} catch (IOException e) {
+					LOGGER.severe("Something went wrong while zipping!");
+				}
+			}
+		}
+
+		// If an ordinary file, encrypt
+		else {
+			String extension = getExtensionFromPath(pathToFile);
+			if (!extension.equals("axx")) {
+				while (!file.renameTo(sameFileName)) {
+					try {
+						LOGGER.finest("File not accessible, sleeping.");
+						TimeUnit.MILLISECONDS.sleep(100);
+					} catch (InterruptedException e) {
+						LOGGER.severe("Interrupted while sleeping.");
+						LOGGER.severe(e.getStackTrace().toString());
+					}
+				}
+				if (file.renameTo(sameFileName)) {
+					LOGGER.fine("File " + pathToFile + " accessible.");
+					try {
+						Path encrypted = encrypt(pathToFile);
+						LOGGER.info("Encrypted " + encrypted + " succesfully.");
+						move(encrypted, remote);
+						LOGGER.info("Moved " + encrypted + " to " + remote
+								+ " succesfully.");
+					} catch (IOException e) {
+						LOGGER.severe("IO exception when moving the file. File "
+								+ "might already exist or the remote may "
+								+ "be inaccessible.");
+						LOGGER.severe(e.toString());
+						LOGGER.severe(e.getMessage());
+						return;
+					}
+				}
+			}
+		}
+
 	}
 
 	private void zipDirectory(File file) throws IOException {
@@ -303,7 +315,7 @@ public class AutoEncryptor {
 
 	private String getExtensionFromPath(Path path) {
 		String extension = "";
-			int i = path.toString().lastIndexOf('.');
+		int i = path.toString().lastIndexOf('.');
 		if (i > 0) {
 			extension = path.toString().substring(i + 1);
 		}
