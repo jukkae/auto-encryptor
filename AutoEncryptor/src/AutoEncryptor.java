@@ -1,5 +1,4 @@
 import java.nio.file.*;
-import java.nio.file.WatchEvent.Kind;
 import java.io.File;
 import java.io.IOException;
 
@@ -7,16 +6,14 @@ import static java.nio.file.StandardWatchEventKinds.*;
 
 import java.io.*;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
 
 public class AutoEncryptor {
 	private WatchService watcher;
+	private ArrayList<EventProcessor> eventProcessors;
 	static Map<WatchKey, Path> keys;
 	static Map<Path, Path> directories;
 
@@ -38,7 +35,9 @@ public class AutoEncryptor {
 
 		readConfig();
 		initLogger();
-
+		
+		this.eventProcessors = new ArrayList<EventProcessor>();
+ 
 		this.logLevel = Level.parse(config.getProperty("logLevel"));
 		LOGGER.setLevel(logLevel);
 		LOGGER.info("Log level " + logLevel);
@@ -116,6 +115,8 @@ public class AutoEncryptor {
 
 		LOGGER.info("Initialization succesful!");
 		for (;;) {
+			// TODO iterate through arraylist
+			
 			WatchKey key;
 
 			try {
@@ -150,7 +151,6 @@ public class AutoEncryptor {
 	}
 
 	private WatchKey getWatchKey() throws InterruptedException {
-		LOGGER.finest("Getting watch key.");
 		WatchKey key = watcher.take();
 		LOGGER.finest("Watch key: " + key);
 		return key;
@@ -164,7 +164,7 @@ public class AutoEncryptor {
 	private void processEvents(WatchKey key) {
 		if (!directoryIsNull(key)) {
 			for (WatchEvent<?> event : key.pollEvents()) {
-				EventProcessor.processEvent(key, event);
+				DefaultEventProcessor.processEvent(key, event);
 			}
 		}
 	}
