@@ -167,11 +167,6 @@ public class AutoEncryptor {
 			return;
 		}
 
-		Path dir = keys.get(key);
-		Path remote = directories.get(keys.get(key));
-		LOGGER.fine("Current watched directory: " + dir);
-		LOGGER.fine("Current remote directory: " + remote);
-
 		for (WatchEvent<?> event : key.pollEvents()) {
 			Kind<?> kind = event.kind();
 
@@ -181,7 +176,7 @@ public class AutoEncryptor {
 			}
 
 			if (kind == ENTRY_CREATE) {
-				processCreation(event, dir, remote);
+				processCreation(key, event);
 			}
 		}
 	}
@@ -194,8 +189,13 @@ public class AutoEncryptor {
 		return false;
 	}
 
-	private void processCreation(WatchEvent<?> event, Path dir, Path remote) {
+	private void processCreation(WatchKey key, WatchEvent<?> event) {
 
+		Path dir = keys.get(key);
+		Path remote = directories.get(keys.get(key));
+		LOGGER.fine("Current watched directory: " + dir);
+		LOGGER.fine("Current remote directory: " + remote);
+		
 		WatchEvent<Path> ev = cast(event);
 		Path name = ev.context();
 		Path pathToFile = dir.resolve(name);
