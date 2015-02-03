@@ -17,12 +17,12 @@ import java.util.zip.ZipOutputStream;
 
 public class AutoEncryptor {
 	private WatchService watcher;
-	private Map<WatchKey, Path> keys;
-	private Map<Path, Path> directories;
+	static Map<WatchKey, Path> keys;
+	static Map<Path, Path> directories;
 
-	private String passphrase;
+	static String passphrase;
 
-	private final static Logger LOGGER = Logger.getLogger(AutoEncryptor.class
+	public final static Logger LOGGER = Logger.getLogger(AutoEncryptor.class
 			.getName());
 	private Level logLevel;
 	private static FileHandler fh;
@@ -44,10 +44,10 @@ public class AutoEncryptor {
 		LOGGER.info("Log level " + logLevel);
 
 		this.watcher = FileSystems.getDefault().newWatchService();
-		this.keys = new HashMap<WatchKey, Path>();
-		this.directories = new HashMap<Path, Path>();
+		keys = new HashMap<WatchKey, Path>();
+		directories = new HashMap<Path, Path>();
 
-		this.passphrase = config.getProperty("passphrase");
+		passphrase = config.getProperty("passphrase");
 
 		register();
 	}
@@ -142,7 +142,7 @@ public class AutoEncryptor {
 		}
 	}
 
-	private void logExceptionAsSevere(Exception e, String message) {
+	static void logExceptionAsSevere(Exception e, String message) {
 		LOGGER.severe(message);
 		LOGGER.severe(e.toString());
 		LOGGER.severe(e.getMessage());
@@ -162,21 +162,9 @@ public class AutoEncryptor {
 	 * @param key
 	 */
 	private void processEvents(WatchKey key) {
-
-		if (directoryIsNull(key)) {
-			return;
-		}
-
-		for (WatchEvent<?> event : key.pollEvents()) {
-			Kind<?> kind = event.kind();
-
-			if (kind == OVERFLOW) {
-				LOGGER.warning("Overflow error. Manual check necessary.");
-				continue;
-			}
-
-			if (kind == ENTRY_CREATE) {
-				processCreation(key, event);
+		if (!directoryIsNull(key)) {
+			for (WatchEvent<?> event : key.pollEvents()) {
+				EventProcessor.processEvent(key, event);
 			}
 		}
 	}
@@ -187,226 +175,6 @@ public class AutoEncryptor {
 			return true;
 		}
 		return false;
-	}
-
-	private void processCreation(WatchKey key, WatchEvent<?> event) {
-
-		Path dir = keys.get(key);
-		Path remote = directories.get(keys.get(key));
-		LOGGER.fine("Current watched directory: " + dir);
-		LOGGER.fine("Current remote directory: " + remote);
-		
-		WatchEvent<Path> ev = cast(event);
-		Path name = ev.context();
-		Path pathToFile = dir.resolve(name);
-
-		LOGGER.config(event.kind().name() + ": " + pathToFile);
-
-		// If directory, zip recursively
-		if (new File(pathToFile.toString()).isDirectory()) {
-			zipRecursively(pathToFile);
-		}
-
-		// If an ordinary file, encrypt
-		else {
-			encryptAndMoveFile(pathToFile, remote);
-		}
-
-	}
-
-	private void encryptAndMoveFile(Path pathToFile, Path remote) {
-
-		String extension = getExtensionFromPath(pathToFile);
-		if (!extension.equals("axx")) {
-			waitUntilPathIsAccessible(pathToFile);
-			if (pathIsAccessible(pathToFile)) {
-				LOGGER.fine("File " + pathToFile + " accessible.");
-				try {
-					Path encrypted = encrypt(pathToFile);
-					LOGGER.info("Encrypted " + encrypted + " succesfully.");
-					move(encrypted, remote);
-					LOGGER.info("Moved " + encrypted + " to " + remote
-							+ " succesfully.");
-				} catch (IOException e) {
-					logExceptionAsSevere(
-							e,
-							"IO exception when moving the file. File "
-									+ "might already exist or the remote may "
-									+ "be inaccessible or not reachable due to for example network problems.");
-					return;
-				}
-			}
-		}
-	}
-
-	void waitUntilPathIsAccessible(Path path) {
-		while (!pathIsAccessible(path)) {
-			try {
-				LOGGER.finest("File not accessible, sleeping.");
-				TimeUnit.MILLISECONDS.sleep(100);
-			} catch (InterruptedException e) {
-				logExceptionAsSevere(e, "Interrupted while sleeping.");
-			}
-		}
-	}
-
-	boolean pathIsAccessible(Path path) {
-		String fileName = path.toString();
-		File file = new File(fileName);
-		File sameFileName = new File(fileName);
-		return file.renameTo(sameFileName);
-	}
-
-	private void zipRecursively(Path pathToFile) {
-		LOGGER.config("File " + pathToFile + " is directory, zipping.");
-
-		waitUntilPathIsAccessible(pathToFile);
-		if (pathIsAccessible(pathToFile)) {
-			LOGGER.fine("File " + pathToFile + " accessible.");
-			try {
-				zipDirectory(pathToFile);
-				return;
-			} catch (IOException e) {
-				logExceptionAsSevere(e, "Something went wrong while zipping!");
-			}
-		}
-
-	}
-
-	private void zipDirectory(Path path) throws IOException {
-		String fileName = path.toString();
-		File file = new File(fileName);
-
-		String zipFileName = file.getCanonicalPath().concat(".zip");
-		ZipOutputStream out = new ZipOutputStream(new FileOutputStream(
-				zipFileName));
-		LOGGER.config("Creating: " + zipFileName);
-		addDir(file, out);
-		out.close();
-		LOGGER.fine("Deleting directory " + file);
-		if (deleteDirectory(file)) {
-			LOGGER.config("Deleted directory " + file + " succesfully.");
-		} else {
-			LOGGER.config("Deleting directory " + file + " not succesful.");
-		}
-	}
-
-	private boolean deleteDirectory(File path) {
-		if (path.exists()) {
-			File[] files = path.listFiles();
-			for (int i = 0; i < files.length; i++) {
-				if (files[i].isDirectory()) {
-					deleteDirectory(files[i]);
-				} else {
-					LOGGER.finest("Delete file " + files[i]);
-					files[i].delete();
-				}
-			}
-		}
-		return (path.delete());
-	}
-
-	private void addDir(File file, ZipOutputStream out) throws IOException {
-		File[] files = file.listFiles();
-		byte[] tmpBuf = new byte[1024];
-
-		for (int i = 0; i < files.length; i++) {
-			if (files[i].isDirectory()) {
-				addDir(files[i], out);
-				continue;
-			}
-			FileInputStream in = new FileInputStream(files[i].getAbsolutePath());
-			LOGGER.config("Adding to zip: " + files[i].getAbsolutePath());
-			String relativePath = file.toURI().relativize(files[i].toURI())
-					.toString();
-			out.putNextEntry(new ZipEntry(relativePath));
-			int len;
-			while ((len = in.read(tmpBuf)) > 0) {
-				out.write(tmpBuf, 0, len);
-			}
-			out.closeEntry();
-			in.close();
-		}
-	}
-
-	private void move(Path file, Path newLocation) throws IOException {
-		LOGGER.finest("Getting filename for " + file);
-		Path filename = file.getFileName();
-		LOGGER.finest("Got filename for " + file);
-		LOGGER.finest("Getting new location " + newLocation);
-		newLocation = Paths.get(newLocation.toString().concat("\\")
-				.concat(filename.toString()));
-		LOGGER.finest("Got new location " + newLocation);
-		LOGGER.config("Moving file " + filename + " to " + newLocation);
-		Files.move(file, newLocation);
-	}
-
-	private String getExtensionFromPath(Path path) {
-		String extension = "";
-		int i = path.toString().lastIndexOf('.');
-		if (i > 0) {
-			extension = path.toString().substring(i + 1);
-		}
-		return extension;
-	}
-
-	private Path encrypt(Path pathToFile) throws IOException {
-
-		String commandString = createEncryptionStringForPath(pathToFile);
-		if (executeExternalCommand(commandString)) {
-			return getEncryptedFilePath(pathToFile);
-		} else {
-			LOGGER.severe("Encryption of file " + pathToFile
-					+ " not succesful.");
-			throw (new IOException());
-		}
-	}
-
-	private String createEncryptionStringForPath(Path pathToFile) {
-		String encryptionString = "C:\\Program Files\\Axantum\\Axcrypt\\AxCrypt -b 2 -e -k "
-				+ "\"" + passphrase + "\"" + " -z " + "\"" + pathToFile + "\"";
-		return encryptionString;
-	}
-
-	private boolean executeExternalCommand(String command) throws IOException {
-		Process process;
-
-		process = Runtime.getRuntime().exec(command);
-		InputStream stream = process.getInputStream();
-		Reader reader = new InputStreamReader(stream);
-		BufferedReader bReader = new BufferedReader(reader);
-		String nextLine = null;
-		while ((nextLine = bReader.readLine()) != null) {
-			LOGGER.config("Process output: " + nextLine);
-		}
-		int exitValue = process.exitValue();
-		LOGGER.config("Process exited with value: " + exitValue);
-		if (exitValue == 0) {
-			return true;
-		} else {
-			LOGGER.severe("External command not succesful.");
-			return false;
-		}
-	}
-
-	private Path getEncryptedFilePath(Path path) {
-		String extension = getExtensionFromPath(path);
-		String pathString = path.toString();
-
-		int lastIndex = pathString.lastIndexOf(extension);
-		int dotIndex = lastIndex;
-		if (!extension.equals(""))
-			dotIndex = lastIndex - 1;
-		String pathNoExt = pathString.substring(0, dotIndex);
-
-		String newPath;
-		if (!extension.equals(""))
-			newPath = pathNoExt + "-" + extension + ".axx";
-		else
-			newPath = pathNoExt + ".axx";
-
-		path = Paths.get(newPath);
-		return path;
 	}
 
 	public static void main(String[] args) throws IOException {
