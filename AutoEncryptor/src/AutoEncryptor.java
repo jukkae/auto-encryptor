@@ -15,9 +15,8 @@ public class AutoEncryptor {
 	private WatchService watcher;
 	private ArrayList<EventProcessor> eventProcessors;
 	static Map<WatchKey, Path> keys;
-	static Map<Path, Path> directories;
 
-	static String passphrase;
+	String passphrase;
 
 	public final static Logger LOGGER = Logger.getLogger(AutoEncryptor.class
 			.getName());
@@ -35,21 +34,21 @@ public class AutoEncryptor {
 
 		readConfig();
 		initLogger();
-		
+
 		this.eventProcessors = new ArrayList<EventProcessor>();
-		eventProcessors.add(new DefaultEventProcessor());
- 
+		eventProcessors.add(new DefaultEventProcessor(this));
+
 		this.logLevel = Level.parse(config.getProperty("logLevel"));
 		LOGGER.setLevel(logLevel);
 		LOGGER.info("Log level " + logLevel);
 
 		this.watcher = FileSystems.getDefault().newWatchService();
 		keys = new HashMap<WatchKey, Path>();
-		directories = new HashMap<Path, Path>();
 
 		passphrase = config.getProperty("passphrase");
 
 		register();
+		initEventProcessors();
 	}
 
 	private void initLogger() {
@@ -82,6 +81,13 @@ public class AutoEncryptor {
 		in.close();
 	}
 
+	private void initEventProcessors() {
+		for (int i = 0; i < eventProcessors.size(); i++) {
+			eventProcessors.get(i).initialize();
+		}
+	}
+
+	// TODO this is ugly, find a generic solution for all EventProcessors.
 	private void register() throws IOException {
 
 		int i = 1;
@@ -92,7 +98,16 @@ public class AutoEncryptor {
 				Path remoteDir = Paths.get(config.getProperty("remoteDir" + i));
 				LOGGER.info("Watching " + watchDir + ", - Remote is "
 						+ remoteDir);
-				directories.put(watchDir, remoteDir);
+
+				// TODO ughhhh
+				for (int j = 0; j < eventProcessors.size(); j++) {
+					EventProcessor ep = eventProcessors.get(j);
+					if (ep instanceof DefaultEventProcessor) {
+						DefaultEventProcessor dep = (DefaultEventProcessor) ep;
+						dep.directories.put(watchDir, remoteDir);
+					}
+				}
+
 				registerDirectory(watchDir);
 				i++;
 			} else {
@@ -117,7 +132,7 @@ public class AutoEncryptor {
 		LOGGER.info("Initialization succesful!");
 		for (;;) {
 			// TODO iterate through arraylist
-			
+
 			WatchKey key;
 
 			try {
@@ -165,7 +180,7 @@ public class AutoEncryptor {
 	private void processEvents(WatchKey key) {
 		if (!directoryIsNull(key)) {
 			for (WatchEvent<?> event : key.pollEvents()) {
-				for(EventProcessor processor : eventProcessors){
+				for (EventProcessor processor : eventProcessors) {
 					processor.processEvent(key, event);
 				}
 			}

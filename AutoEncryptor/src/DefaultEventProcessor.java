@@ -15,11 +15,26 @@ import java.nio.file.Paths;
 import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchEvent.Kind;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 public class DefaultEventProcessor implements EventProcessor {
+
+	AutoEncryptor autoEncryptor;
+	Map<Path, Path> directories;
+	
+	public DefaultEventProcessor(AutoEncryptor autoEncryptor) {
+		this.autoEncryptor = autoEncryptor;
+		this.directories = new HashMap<Path, Path>();
+	}
+	
+	public void initialize() {
+		// TODO Auto-generated method stub
+		
+	}
 
 	public void processEvent(WatchKey key, WatchEvent<?> event) {
 		Kind<?> kind = event.kind();
@@ -37,7 +52,7 @@ public class DefaultEventProcessor implements EventProcessor {
 	private void processCreation(WatchKey key, WatchEvent<?> event) {
 
 		Path dir = AutoEncryptor.keys.get(key);
-		Path remote = AutoEncryptor.directories
+		Path remote = directories
 				.get(AutoEncryptor.keys.get(key));
 		AutoEncryptor.LOGGER.fine("Current watched directory: " + dir);
 		AutoEncryptor.LOGGER.fine("Current remote directory: " + remote);
@@ -222,7 +237,7 @@ public class DefaultEventProcessor implements EventProcessor {
 	private String createEncryptionStringForPath(Path pathToFile) {
 		String encryptionString = "C:\\Program Files\\Axantum\\Axcrypt\\AxCrypt -b 2 -e -k "
 				+ "\""
-				+ AutoEncryptor.passphrase
+				+ autoEncryptor.passphrase
 				+ "\""
 				+ " -z "
 				+ "\""
