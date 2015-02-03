@@ -37,6 +37,7 @@ public class AutoEncryptor {
 		initLogger();
 		
 		this.eventProcessors = new ArrayList<EventProcessor>();
+		eventProcessors.add(new DefaultEventProcessor());
  
 		this.logLevel = Level.parse(config.getProperty("logLevel"));
 		LOGGER.setLevel(logLevel);
@@ -164,7 +165,9 @@ public class AutoEncryptor {
 	private void processEvents(WatchKey key) {
 		if (!directoryIsNull(key)) {
 			for (WatchEvent<?> event : key.pollEvents()) {
-				DefaultEventProcessor.processEvent(key, event);
+				for(EventProcessor processor : eventProcessors){
+					processor.processEvent(key, event);
+				}
 			}
 		}
 	}

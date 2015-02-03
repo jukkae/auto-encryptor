@@ -21,7 +21,7 @@ import java.util.zip.ZipOutputStream;
 
 public class DefaultEventProcessor implements EventProcessor {
 
-	public static void processEvent(WatchKey key, WatchEvent<?> event) {
+	public void processEvent(WatchKey key, WatchEvent<?> event) {
 		Kind<?> kind = event.kind();
 
 		if (kind == OVERFLOW) {
@@ -34,7 +34,7 @@ public class DefaultEventProcessor implements EventProcessor {
 		}
 	}
 
-	private static void processCreation(WatchKey key, WatchEvent<?> event) {
+	private void processCreation(WatchKey key, WatchEvent<?> event) {
 
 		Path dir = AutoEncryptor.keys.get(key);
 		Path remote = AutoEncryptor.directories
@@ -60,7 +60,7 @@ public class DefaultEventProcessor implements EventProcessor {
 
 	}
 
-	static void encryptAndMoveFile(Path pathToFile, Path remote) {
+	void encryptAndMoveFile(Path pathToFile, Path remote) {
 
 		String extension = getExtensionFromPath(pathToFile);
 		if (!extension.equals("axx")) {
@@ -88,7 +88,7 @@ public class DefaultEventProcessor implements EventProcessor {
 		}
 	}
 
-	static void waitUntilPathIsAccessible(Path path) {
+	void waitUntilPathIsAccessible(Path path) {
 		while (!pathIsAccessible(path)) {
 			try {
 				AutoEncryptor.LOGGER.finest("File not accessible, sleeping.");
@@ -100,14 +100,14 @@ public class DefaultEventProcessor implements EventProcessor {
 		}
 	}
 
-	static boolean pathIsAccessible(Path path) {
+	boolean pathIsAccessible(Path path) {
 		String fileName = path.toString();
 		File file = new File(fileName);
 		File sameFileName = new File(fileName);
 		return file.renameTo(sameFileName);
 	}
 
-	private static void zipRecursively(Path pathToFile) {
+	void zipRecursively(Path pathToFile) {
 		AutoEncryptor.LOGGER.config("File " + pathToFile
 				+ " is directory, zipping.");
 
@@ -125,7 +125,7 @@ public class DefaultEventProcessor implements EventProcessor {
 
 	}
 
-	private static void zipDirectory(Path path) throws IOException {
+	private void zipDirectory(Path path) throws IOException {
 		String fileName = path.toString();
 		File file = new File(fileName);
 
@@ -145,7 +145,7 @@ public class DefaultEventProcessor implements EventProcessor {
 		}
 	}
 
-	private static boolean deleteDirectory(File path) {
+	private boolean deleteDirectory(File path) {
 		if (path.exists()) {
 			File[] files = path.listFiles();
 			for (int i = 0; i < files.length; i++) {
@@ -160,7 +160,7 @@ public class DefaultEventProcessor implements EventProcessor {
 		return (path.delete());
 	}
 
-	private static void addDirToZip(File file, ZipOutputStream out)
+	private void addDirToZip(File file, ZipOutputStream out)
 			throws IOException {
 		File[] files = file.listFiles();
 		byte[] tmpBuf = new byte[1024];
@@ -185,7 +185,7 @@ public class DefaultEventProcessor implements EventProcessor {
 		}
 	}
 
-	private static void move(Path file, Path newLocation) throws IOException {
+	private void move(Path file, Path newLocation) throws IOException {
 		AutoEncryptor.LOGGER.finest("Getting filename for " + file);
 		Path filename = file.getFileName();
 		AutoEncryptor.LOGGER.finest("Got filename for " + file);
@@ -198,7 +198,7 @@ public class DefaultEventProcessor implements EventProcessor {
 		Files.move(file, newLocation);
 	}
 
-	private static String getExtensionFromPath(Path path) {
+	private String getExtensionFromPath(Path path) {
 		String extension = "";
 		int i = path.toString().lastIndexOf('.');
 		if (i > 0) {
@@ -207,7 +207,7 @@ public class DefaultEventProcessor implements EventProcessor {
 		return extension;
 	}
 
-	private static Path encrypt(Path pathToFile) throws IOException {
+	private Path encrypt(Path pathToFile) throws IOException {
 
 		String commandString = createEncryptionStringForPath(pathToFile);
 		if (executeExternalCommand(commandString)) {
@@ -219,7 +219,7 @@ public class DefaultEventProcessor implements EventProcessor {
 		}
 	}
 
-	private static String createEncryptionStringForPath(Path pathToFile) {
+	private String createEncryptionStringForPath(Path pathToFile) {
 		String encryptionString = "C:\\Program Files\\Axantum\\Axcrypt\\AxCrypt -b 2 -e -k "
 				+ "\""
 				+ AutoEncryptor.passphrase
@@ -230,7 +230,7 @@ public class DefaultEventProcessor implements EventProcessor {
 		return encryptionString;
 	}
 
-	private static boolean executeExternalCommand(String command)
+	private boolean executeExternalCommand(String command)
 			throws IOException {
 		Process process;
 
@@ -252,7 +252,7 @@ public class DefaultEventProcessor implements EventProcessor {
 		}
 	}
 
-	private static Path getEncryptedFilePath(Path path) {
+	private Path getEncryptedFilePath(Path path) {
 		String extension = getExtensionFromPath(path);
 		String pathString = path.toString();
 
