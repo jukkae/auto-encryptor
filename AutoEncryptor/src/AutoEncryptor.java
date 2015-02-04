@@ -131,7 +131,6 @@ public class AutoEncryptor {
 
 		LOGGER.info("Initialization succesful!");
 		for (;;) {
-			// TODO iterate through arraylist
 
 			WatchKey key;
 
